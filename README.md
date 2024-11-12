@@ -1,6 +1,6 @@
 ![image](https://github.com/user-attachments/assets/f328716c-8655-4068-b12d-ae5db115d497)
 - 2024.11.13 10:00 ~ 2024.11.28 19:00
-- X-ray 이미지에서 사람의 뼈를 Segmentation
+- X-ray 이미지에서 사람의 뼈를 Segmentation 하는 인공지능 만들기
 
 ## 팀원 소개
 
