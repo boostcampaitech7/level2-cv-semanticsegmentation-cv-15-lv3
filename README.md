@@ -1,3 +1,15 @@
+![image](https://github.com/user-attachments/assets/f328716c-8655-4068-b12d-ae5db115d497)
+- 2024.11.13 10:00 ~ 2024.11.28 19:00
+- X-ray 이미지에서 사람의 뼈를 Segmentation
+
+## 팀원 소개
+
+##  :sunglasses:팀원 소개
+
+| [![](https://avatars.githubusercontent.com/jung0228)](https://github.com/jung0228) | [![](https://avatars.githubusercontent.com/chan-note)](https://github.com/chan-note) | [![](https://avatars.githubusercontent.com/batwan01)](https://github.com/batwan01) | [![](https://avatars.githubusercontent.com/jhuni17)](https://github.com/jhuni17) |  [![](https://avatars.githubusercontent.com/u/93571932?v=4)](https://github.com/uddaniiii) | [![](https://avatars.githubusercontent.com/u/48996852?v=4)](https://github.com/min000914) | 
+| ---------------------------------------------------- | ------------------------------------------------------ | --------------------------------------------------- | ------------------------------------------------------- | --------------------------------------------------- | ------------------------------------------------------- |
+| [정현우](https://github.com/jung0228)   |   [임찬혁](https://github.com/chan-note)     | [박지완](https://github.com/batwan01)          | [최재훈](https://github.com/jhuni17) | [이단유](https://github.com/uddaniiii)  | [민창기](https://github.com/min000914) |
+
 | 커밋 유형 | 의미 |
 | :-: | -|
 |feat|	새로운 기능 추가|
