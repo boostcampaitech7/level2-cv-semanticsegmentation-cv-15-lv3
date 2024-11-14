@@ -1,7 +1,7 @@
 import datetime
 import torch
 from tqdm import tqdm
-from config import NUM_EPOCHS, CLASSES, SAVED_DIR, SERVER_ID, VAL_EVERY  # Add CLASSES to the import
+from config import MODEL_NAME, NUM_EPOCHS, CLASSES, SAVED_DIR, SERVER_ID, VAL_EVERY  # Add CLASSES to the import
 from utils import save_model, dice_coef
 import torch.nn.functional as F 
 from discord_notifications import send_discord_message  # 추가
@@ -57,7 +57,7 @@ def train(model, data_loader, val_loader, criterion, optimizer):
     # 학습 시작 알림
     server_id = SERVER_ID
     
-    send_discord_message(f"🎬 [서버 {server_id}] 학습이 시작되었습니다!")
+    send_discord_message(f"🎬 [서버 {server_id}] {MODEL_NAME} 학습이 시작되었습니다!")
     
     print(f'Start training..')
     model.cuda()

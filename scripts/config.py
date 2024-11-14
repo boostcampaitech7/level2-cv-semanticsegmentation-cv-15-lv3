@@ -21,3 +21,4 @@ VAL_EVERY = 1
 RANDOM_SEED = 42
 SAVED_DIR = "../checkpoints/test"
 SERVER_ID = "3"
+MODEL_NAME = "unet++"
