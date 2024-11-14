@@ -66,7 +66,6 @@ def train(model, data_loader, val_loader, criterion, optimizer):
             # gpu 연산을 위해 device 할당
             images, masks = images.cuda(), masks.cuda()
 
-
             # inference
             outputs = model(images)
 
@@ -81,7 +80,7 @@ def train(model, data_loader, val_loader, criterion, optimizer):
                 print(
                     f'{datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")} | '
                     f'Epoch [{epoch+1}/{NUM_EPOCHS}], '
-                    f'Step [{step+1}/{len(data_loader)*4//5}], '
+                    f'Step [{step+1}/{len(data_loader)}], '
                     f'Loss: {round(loss.item(),4)}'
                 )
 

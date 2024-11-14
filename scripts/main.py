@@ -4,12 +4,14 @@ import torch.nn as nn
 from torch.utils.data import DataLoader
 from sklearn.model_selection import GroupKFold
 import numpy as np
-
+import torch.optim as optim
 from dataset import XRayDataset
 from model import UNetPlusPlus
 from train import train
+import albumentations as A
 from config import (
     BATCH_SIZE,
+    CLASSES,
     LR,
     NUM_EPOCHS,
     IMAGE_ROOT,
@@ -21,12 +23,7 @@ def main():
     # Set random seed
     set_seed(RANDOM_SEED)
     
-    # Get file paths
-    pngs = []
-    jsons = []
-    
     # Print current working directory and image root for debugging
-    print(f"Current working directory: {os.getcwd()}")
     print(f"IMAGE_ROOT: {IMAGE_ROOT}")
     print(f"LABEL_ROOT: {LABEL_ROOT}")
     
@@ -42,47 +39,48 @@ def main():
       os.path.relpath(os.path.join(root, fname), start=LABEL_ROOT)
       for root, _dirs, files in os.walk(LABEL_ROOT)
       for fname in files
-    if os.path.splitext(fname)[1].lower() == ".json"
+      if os.path.splitext(fname)[1].lower() == ".json"
     }
     
     if not pngs:
         raise ValueError(f"No PNG files found in {IMAGE_ROOT}")
-        
     if not jsons:
         raise ValueError(f"No JSON files found in {LABEL_ROOT}")
     
     # Sort files
     pngs = sorted(pngs)
     jsons = sorted(jsons)
-    
     print(f"Number of PNG files found: {len(pngs)}")
     print(f"Number of JSON files found: {len(jsons)}")
-    
+    pngs = np.array(pngs)
+    jsons = np.array(jsons)
     # Split dataset using GroupKFold
     groups = [os.path.dirname(fname) for fname in pngs]
+    ys = [0 for fname in pngs]
     gkf = GroupKFold(n_splits=5)
+
+    train_filenames = []
+    train_labelnames = []
+    valid_filenames = []
+    valid_labelnames = []
     
-    # Get train/val indices for first fold
-    train_idx, val_idx = next(gkf.split(pngs, groups=groups))
+    for i, (x, y) in enumerate(gkf.split(pngs, ys, groups)):
+        # 0번을 validation dataset으로 사용합니다.
+        if i == 0:
+            valid_filenames += list(pngs[y])
+            valid_labelnames += list(jsons[y])
+
+        else:
+            train_filenames += list(pngs[y])
+            train_labelnames += list(jsons[y])
     
-    # Create datasets
-    train_dataset = XRayDataset(
-        np.array(pngs)[train_idx].tolist(),
-        np.array(jsons)[train_idx].tolist(),
-        transforms=None,  # Add your transforms here
-        is_train=True
-    )
-    
-    val_dataset = XRayDataset(
-        np.array(pngs)[val_idx].tolist(),
-        np.array(jsons)[val_idx].tolist(),
-        transforms=None,  # Add your transforms here
-        is_train=False
-    )
+    tf = A.Resize(512, 512)
+    train_dataset = XRayDataset(train_filenames, train_labelnames, transforms=tf, is_train=True)
+    val_dataset = XRayDataset(valid_filenames, valid_labelnames, transforms=tf, is_train=False)
     
     # Create dataloaders
     train_loader = DataLoader(
-        train_dataset,
+        dataset=train_dataset,
         batch_size=BATCH_SIZE,
         shuffle=True,
         num_workers=4,
@@ -90,16 +88,19 @@ def main():
     )
     
     val_loader = DataLoader(
-        val_dataset,
+        dataset=val_dataset,
         batch_size=BATCH_SIZE,
         shuffle=False,
-        num_workers=4
+        num_workers=4,
+        drop_last=False
     )
     
     # Initialize model, criterion, and optimizer
-    model = UNetPlusPlus()
+    model = UNetPlusPlus(out_ch=len(CLASSES), supervision=False)
+    # Loss function 정의
     criterion = nn.BCEWithLogitsLoss()
-    optimizer = torch.optim.Adam(model.parameters(), lr=LR)
+    # Optimizer 정의
+    optimizer = optim.RMSprop(params=model.parameters(), lr=LR, weight_decay=1e-6)
     
     # Train
     train(model, train_loader, val_loader, criterion, optimizer)
