@@ -1,10 +1,11 @@
 import datetime
+import os
 import torch
 import numpy as np
 import random
 import torch.nn.functional as F
 import tqdm
-from config import CLASSES
+from config import CLASSES, SAVED_DIR
 
 def dice_coef(y_true, y_pred):
     """
@@ -25,7 +26,7 @@ def dice_coef(y_true, y_pred):
     return (2. * intersection + eps) / (torch.sum(y_true_f, -1) + torch.sum(y_pred_f, -1) + eps)
 
 
-def save_model(model, output_path, file_name='best_model.pt'):
+def save_model(model, file_name='best_model.pt'):
     """
     Save the trained model to a file.
 
@@ -34,9 +35,11 @@ def save_model(model, output_path, file_name='best_model.pt'):
         output_path (str): Directory path where the model will be saved.
         file_name (str, optional): Name of the saved model file. Defaults to 'best_model.pt'.
     """
-    torch.save(model.state_dict(), f"{output_path}/{file_name}")
-    print(f"Model saved to {output_path}/{file_name}")
-
+    if not os.path.isdir(SAVED_DIR):
+        os.mkdir(SAVED_DIR)
+        
+    torch.save(model.state_dict(), f"{SAVED_DIR}/{file_name}")
+    print(f"Model saved to {SAVED_DIR}/{file_name}")
 
 def set_seed(seed=21):
     """

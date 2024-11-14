@@ -19,7 +19,5 @@ LR = 1e-3
 NUM_EPOCHS = 20
 VAL_EVERY = 1
 RANDOM_SEED = 42
-SAVED_DIR = "../checkpoints/"
-
-if not os.path.isdir(SAVED_DIR):
-    os.mkdir(SAVED_DIR)
+SAVED_DIR = "../checkpoints/test"
+SERVER_ID = "3"
