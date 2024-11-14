@@ -152,3 +152,4 @@ def train(model, data_loader, val_loader, criterion, optimizer,
                 print(f"Save model in {SAVED_DIR}")
                 best_dice = dice
                 save_model(model)
+                
