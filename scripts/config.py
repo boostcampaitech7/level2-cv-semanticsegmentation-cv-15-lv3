@@ -19,6 +19,6 @@ LR = 1e-3
 NUM_EPOCHS = 20
 VAL_EVERY = 1
 RANDOM_SEED = 42
-SAVED_DIR = "../checkpoints/test"
 SERVER_ID = "3"
 MODEL_NAME = "unet++"
+SAVED_DIR = f"../checkpoints/{MODEL_NAME}"
