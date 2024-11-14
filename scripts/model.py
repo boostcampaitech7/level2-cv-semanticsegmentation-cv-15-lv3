@@ -2,6 +2,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+# from CustomLayers.ConvBlock2D import conv_block_2D
 
 class ConvBlockNested(nn.Module):
     def __init__(self, in_ch, mid_ch, out_ch):
@@ -86,11 +87,6 @@ class UNetPlusPlus(nn.Module):
             return seg_outputs
         else:
             return seg_outputs[-1]
-
-import torch
-import torch.nn as nn
-import torch.nn.functional as F
-# from CustomLayers.ConvBlock2D import conv_block_2D
 
 class DUCKNet(nn.Module):
     def __init__(self, img_height, img_width, input_channels, out_classes, starting_filters):
@@ -196,10 +192,6 @@ class DUCKNet(nn.Module):
         
         output = torch.sigmoid(self.output(z1))
         return output
-
-import torch
-import torch.nn as nn
-import torch.nn.functional as F
 
 class ConvBlock2D(nn.Module):
     def __init__(self, filters, block_type, repeat=1, dilation_rate=1, size=3, padding='same'):
