@@ -6,7 +6,7 @@ from sklearn.model_selection import GroupKFold
 import numpy as np
 import torch.optim as optim
 from dataset import XRayDataset
-from model import UNetPlusPlus
+from model import DUCKNet, UNetPlusPlus
 from train import train
 from test import test
 import albumentations as A
@@ -26,8 +26,9 @@ def main():
     set_seed(RANDOM_SEED)
     
     # Initialize model, criterion, and optimizer
-    model = UNetPlusPlus(out_ch=len(CLASSES), supervision=False,
+    model = DUCKNet(out_ch=len(CLASSES),
                          height=HEIGHT, width=WIDTH)
+    model = model.cuda()
     criterion = nn.BCEWithLogitsLoss()
     optimizer = optim.RMSprop(params=model.parameters(), lr=LR, weight_decay=1e-6)
 

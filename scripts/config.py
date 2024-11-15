@@ -12,10 +12,10 @@ VAL_EVERY = 1
 RANDOM_SEED = 21
 
 DISCORD_ALERT = True
-HEIGHT = 1024
-WIDTH = 1024
+HEIGHT = 512
+WIDTH = 512
 
-MODEL_NAME = "unet++"
+MODEL_NAME = "ducknet"
 SAVED_DIR = f"../checkpoints/{MODEL_NAME}"
 # Discord Webhook URL
 SERVER_ID = "3"
