@@ -17,4 +17,4 @@ for patient_id in os.listdir(root_dir):
                 image_path = os.path.join(patient_dir, image_file)
                 print(f"Running inference on: {image_path}")
                 # Run inference and save results
-                model.predict(image_path, save=True, imgsz=2048, conf=0.5,max_det=3,augment=True)
+                model.predict(image_path, save=True, imgsz=2048,iou=0.3, conf=0.3,max_det=3,augment=True)
