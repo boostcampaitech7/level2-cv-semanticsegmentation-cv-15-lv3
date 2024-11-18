@@ -130,7 +130,7 @@ def train():
     # 모델 준비
     model = get_model(num_classes=len(Config.CLASSES)).to(device)
     criterion = Loss.get_criterion(Config.LOSS_TYPE)
-    optimizer = optim.Adam(
+    optimizer = optim.AdamW(
         params=model.parameters(), 
         lr=Config.LEARNING_RATE, 
         weight_decay=1e-6
