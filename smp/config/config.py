@@ -2,9 +2,9 @@ from pathlib import Path
 
 class Config:
     # Data
-    TRAIN_IMAGE_ROOT = "train/DCM"
-    TRAIN_LABEL_ROOT = "train/outputs_json"
-    TEST_IMAGE_ROOT = "test/DCM"
+    TRAIN_IMAGE_ROOT = "../data/train/DCM"
+    TRAIN_LABEL_ROOT = "../data/train/outputs_json"
+    TEST_IMAGE_ROOT = "../data/test/DCM"
     
     # Model
     BATCH_SIZE = 8
@@ -12,6 +12,13 @@ class Config:
     NUM_EPOCHS = 5
     VAL_EVERY = 5
     RANDOM_SEED = 21
+
+    # Loss
+    LOSS_TYPE = "bce"
+
+    # Scheduler
+    SCHEDULER_TYPE = "reduce"
+    MIN_LR = 1e-6
     
     # Paths
     SAVED_DIR = Path("checkpoints")

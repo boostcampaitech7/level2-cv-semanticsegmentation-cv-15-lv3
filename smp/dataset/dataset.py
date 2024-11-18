@@ -5,11 +5,13 @@ import numpy as np
 import torch
 from torch.utils.data import Dataset
 from sklearn.model_selection import GroupKFold
+from config.config import Config
 
 class XRayDataset(Dataset):
     def __init__(self, image_root, label_root=None, is_train=True, transforms=None):
         self.is_train = is_train
         self.transforms = transforms
+        self.CLASS2IND = Config.CLASS2IND
         
         # Get all PNG files
         self.image_root = image_root
