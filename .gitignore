@@ -116,9 +116,11 @@ data
 *.pkl.json
 *.log.json
 *.csv
+*.out
 docs/modelzoo_statistics.md
 mmdet/.mim
 work_dirs/
+wandb/
 
 # Pytorch
 *.pth
