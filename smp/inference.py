@@ -21,7 +21,7 @@ def test(model, data_loader, thr=0.5):
     with torch.no_grad():
         for step, (images, image_names) in tqdm(enumerate(data_loader), total=len(data_loader)):
             images = images.cuda()
-            outputs = model(images)['out']
+            outputs = model(images)
             
             # Resize to original size
             outputs = F.interpolate(outputs, size=(2048, 2048), mode="bilinear")

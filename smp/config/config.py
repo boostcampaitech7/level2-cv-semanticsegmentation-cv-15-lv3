@@ -7,10 +7,11 @@ class Config:
     TEST_IMAGE_ROOT = "../data/test/DCM"
     
     # Model
-    BATCH_SIZE = 8
+    TRAIN_BATCH_SIZE = 1
+    VAL_BATCH_SIZE = 4
     LEARNING_RATE = 1e-4
     NUM_EPOCHS = 5
-    VAL_EVERY = 5
+    VAL_EVERY = 1
     RANDOM_SEED = 21
 
     # Loss
