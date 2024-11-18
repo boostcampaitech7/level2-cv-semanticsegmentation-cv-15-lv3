@@ -10,15 +10,16 @@ class Config:
     TRAIN_BATCH_SIZE = 1
     VAL_BATCH_SIZE = 4
     LEARNING_RATE = 1e-4
-    NUM_EPOCHS = 5
+    NUM_EPOCHS = 20
     VAL_EVERY = 1
     RANDOM_SEED = 21
 
     # Loss
-    LOSS_TYPE = "bce"
+    LOSS_TYPE = "bce" # [ "bce", "dice", "focal" ]
 
     # Scheduler
-    SCHEDULER_TYPE = "reduce"
+    # train.py 에서 주석을 풀어야 사용 가능 아직 적용 x
+    SCHEDULER_TYPE = "step" # [ "reduce", "step", "cosine" ]
     MIN_LR = 1e-6
     
     # Paths

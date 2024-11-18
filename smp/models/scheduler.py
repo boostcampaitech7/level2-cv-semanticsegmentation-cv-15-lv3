@@ -17,7 +17,7 @@ class Scheduler:
         if scheduler_type == "step":
             return lr_scheduler.StepLR(
                 optimizer,
-                step_size=kwargs.get('step_size', 30),
+                step_size=kwargs.get('step_size', 10),
                 gamma=kwargs.get('gamma', 0.1)
             )
         elif scheduler_type == "cosine":
