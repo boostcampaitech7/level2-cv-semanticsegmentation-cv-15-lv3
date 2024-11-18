@@ -228,20 +228,15 @@ def train():
             timedelta(seconds=epoch_time * (Config.NUM_EPOCHS - epoch - 1))
         ))
         
-        # Epoch 단위 로깅
+        # Epoch 단위 로깅 - step을 epoch * len(train_loader)로 설정
         wandb.log({
             "Epoch": epoch + 1,
             "Train Loss": avg_epoch_loss,
-        }, step=epoch)
+        }, step=epoch * len(train_loader))
         
         if (epoch + 1) % Config.VAL_EVERY == 0:
             dice, dice_dict, val_loss = validation(
-                epoch + 1, 
-                model, 
-                valid_loader, 
-                criterion,
-                device,
-                threshold=0.5
+                epoch + 1, model, valid_loader, criterion, device, threshold=0.5
             )
 
             # Scheduler step 추가
@@ -250,12 +245,12 @@ def train():
             # else:
             #     scheduler.step()      # 다른 스케줄러들은 단순히 step
             
-            # Validation 결과 로깅
+            # Validation 결과 로깅 - 같은 step 사용
             wandb.log({
                 "Validation Loss": val_loss,
                 "Average Dice Score": dice,
-                **dice_dict,  # 각 클래스별 dice score
-            }, step=epoch)
+                **dice_dict,
+            }, step=epoch * len(train_loader))
 
             if best_dice < dice:
                 print(f"Best performance at epoch: {epoch + 1}, {best_dice:.4f} -> {dice:.4f}")
@@ -263,11 +258,11 @@ def train():
                 best_dice = dice
                 torch.save(model, os.path.join(Config.SAVED_DIR, "best_model.pt"))
 
-                # Best 모델 정보 로깅
+                # Best 모델 정보 로깅 - 같은 step 사용
                 wandb.log({
                     "Best Dice Score": dice,
                     "Best Model Epoch": epoch + 1
-                }, step=epoch)
+                }, step=epoch * len(train_loader))
 
             # Scheduler step 로깅
             # if scheduler is not None:
