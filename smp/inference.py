@@ -7,7 +7,7 @@ from tqdm.auto import tqdm
 from torch.utils.data import DataLoader
 
 from config.config import Config
-from dataset.dataset import XRayDataset
+from dataset.dataset import XRayInferenceDataset
 from utils.rle import encode_mask_to_rle
 from dataset.transforms import Transforms  # Transforms 클래스 import
 
@@ -38,9 +38,8 @@ def test(model, data_loader, thr=0.5):
 
 def main():
     # 데이터셋 준비
-    test_dataset = XRayDataset(
+    test_dataset = XRayInferenceDataset(
         image_root=Config.TEST_IMAGE_ROOT,
-        is_train=False,
         transforms=Transforms.get_test_transform()  # Transforms 클래스 사용
     )
     
