@@ -11,52 +11,53 @@ import torch.nn.functional as F
 from torch.utils.data import DataLoader
 import albumentations as A
 
+import torch
+import torch.nn.functional as F
+from tqdm import tqdm
+
 def validation(epoch, model, data_loader, criterion, thr=0.5):
     print(f'Start validation #{epoch:2d}')
     model.cuda()
     model.eval()
 
-    dices = []
+    n_class = len(CLASSES)
+    total_loss = 0.0
+    dices = torch.zeros(len(data_loader.dataset), n_class, device="cuda")  # Pre-allocate tensor for dice scores
+    cnt = 0
+
     with torch.no_grad():
-        n_class = len(CLASSES)
-        total_loss = 0
-        cnt = 0
-
         for step, (images, masks) in tqdm(enumerate(data_loader), total=len(data_loader)):
-            images, masks = images.cuda(), masks.cuda()
+            images, masks = images.cuda(non_blocking=True), masks.cuda(non_blocking=True)
 
+            # Forward pass
             outputs = model(images)
 
-            output_h, output_w = outputs.size(-2), outputs.size(-1)
-            mask_h, mask_w = masks.size(-2), masks.size(-1)
+            # Resizing if necessary
+            if outputs.size(2) != masks.size(2) or outputs.size(3) != masks.size(3):
+                outputs = F.interpolate(outputs, size=masks.shape[2:], mode="bilinear", align_corners=False)
 
-            # restore original size
-            if output_h != mask_h or output_w != mask_w:
-                outputs = F.interpolate(outputs, size=(mask_h, mask_w), mode="bilinear")
-
+            # Calculate loss
             loss = criterion(outputs, masks)
-            total_loss += loss
+            total_loss += loss.item()
+
+            # Apply sigmoid and thresholding in one step
+            outputs = torch.sigmoid(outputs)
+            outputs = (outputs > thr).float()
+
+            # Dice coefficient calculation
+            dice = dice_coef(outputs, masks)
+            dices[step * images.size(0):(step + 1) * images.size(0)] = dice  # Store dice in pre-allocated tensor
             cnt += 1
 
-            outputs = torch.sigmoid(outputs)
-            outputs = (outputs > thr).detach().cpu()
-            masks = masks.detach().cpu()
-
-            dice = dice_coef(outputs, masks)
-            dices.append(dice)
-
-    dices = torch.cat(dices, 0)
-    dices_per_class = torch.mean(dices, 0)
-    dice_str = [
-        f"{c:<12}: {d.item():.4f}"
-        for c, d in zip(CLASSES, dices_per_class)
-    ]
-    dice_str = "\n".join(dice_str)
+    # Compute average Dice per class
+    dices_per_class = dices.mean(dim=0)
+    dice_str = "\n".join([f"{c:<12}: {d.item():.4f}" for c, d in zip(CLASSES, dices_per_class)])
     print(dice_str)
 
-    avg_dice = torch.mean(dices_per_class).item()
+    avg_dice = dices_per_class.mean().item()
 
     return avg_dice
+
 
 def train(model, criterion, optimizer, discord_alert=DISCORD_ALERT):
     set_seed(RANDOM_SEED)
@@ -115,6 +116,7 @@ def train(model, criterion, optimizer, discord_alert=DISCORD_ALERT):
     if discord_alert:
         send_discord_message(f"✨ [서버 {server_id}] 학습이 완료되었습니다!\n"
                             f"최종 최고 성능: {best_dice:.4f}")
+
 
 def train_val_return():
     # Print current working directory and image root for debugging

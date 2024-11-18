@@ -1,92 +1,111 @@
-import torch
-import albumentations as A
-import cv2
-import pandas as pd
-import numpy as np
 import os
-
+import json
+import random
+import warnings
+import torch
+import numpy as np
+import pandas as pd
 from tqdm import tqdm
-from dataset import XRayInferenceDataset
-from config import IMAGE_ROOT, IND2CLASS, MODEL_NAME, CLASSES
 from torch.utils.data import DataLoader
-import torch.nn.functional as F 
-from utils import encode_mask_to_rle, decode_rle_to_mask
+import torch.nn.functional as F
+import albumentations as A
 
-def test(model: torch.nn.Module) -> None:
-    """
-    Run inference on test dataset and save results to CSV.
+from dataset import XRayInferenceDataset
+from utils import encode_mask_to_rle, decode_rle_to_mask
+from smp_model import get_smp_model
+from config import CLASSES, IND2CLASS, MODEL_NAME
+
+warnings.filterwarnings('ignore')
+
+def load_model(model_path):
+    """학습된 모델을 불러오는 함수"""
+    # 동일한 모델 아키텍처 생성
+    model = get_smp_model(
+        model_type="unetplusplus",
+        encoder_name="resnet50",
+        encoder_weights=None
+    )
     
-    Args:
-        model: PyTorch model for inference
+    # 학습된 가중치 로드
+    checkpoint = torch.load(model_path)
+    
+    # 체크포인트 구조에 따른 다양한 로딩 방식 처리
+    if isinstance(checkpoint, dict):
+        if 'model_state_dict' in checkpoint:
+            model.load_state_dict(checkpoint['model_state_dict'])
+        elif 'state_dict' in checkpoint:
+            model.load_state_dict(checkpoint['state_dict'])
+        elif 'model' in checkpoint:
+            model.load_state_dict(checkpoint['model'])
+    else:
+        model.load_state_dict(checkpoint)
+    
+    model = model.cuda()
+    return model
+
+def test(model_path: str = '../checkpoints/UNetPlusPlus_simple/best_model.pt') -> None:
     """
-    # Setup dataset and dataloader
-    tf = A.Resize(512, 512)
+    테스트 데이터에 대한 추론을 실행하고 결과를 CSV 파일로 저장
+    Args:
+        model_path: 저장된 모델 체크포인트 경로
+    """
+    # transform 정의
+    tf = A.Compose([
+        A.Normalize()
+    ])
+    
+    # 데이터셋 및 데이터로더 설정
     test_dataset = XRayInferenceDataset(transforms=tf)
     test_loader = DataLoader(
         dataset=test_dataset,
-        batch_size=2,       
+        batch_size=1,
         shuffle=False,
         num_workers=2,
         drop_last=False
     )
     
-    # Run inference
+    # 모델 불러오기
+    model = load_model(model_path)
+    
+    # 추론 실행
     rles, filename_and_class = inference(model, test_loader)
     
-    # Process predictions
-    preds = [
-        decode_rle_to_mask(rle, height=2048, width=2048)
-        for rle in rles[:len(CLASSES)]
-    ]
-    preds = np.stack(preds, 0)
-    
-    # Prepare output dataframe
+    # submission 파일 생성
     classes, filename = zip(*[x.split("_") for x in filename_and_class])
     image_name = [os.path.basename(f) for f in filename]
+    
     df = pd.DataFrame({
         "image_name": image_name,
         "class": classes,
         "rle": rles,
     })
-    
-    df.to_csv(f"{MODEL_NAME}.csv", index=False)
+    df.to_csv(f"{MODEL_NAME}_output.csv", index=False)
 
-def inference(model: torch.nn.Module, data_loader: DataLoader, thr: float = 0.5) -> tuple[list, list]:
-    """
-    Run inference on given data loader.
-    
-    Args:
-        model: PyTorch model for inference
-        data_loader: DataLoader containing test data
-        thr: Threshold for binary segmentation
-        
-    Returns:
-        tuple containing:
-            - list of RLE encoded masks
-            - list of filename and class combinations
-    """
-    model = model.cuda()
+def inference(model, data_loader, thr=0.5):
+    """데이터로더에 대한 추론 실행"""
     model.eval()
     
     rles = []
     filename_and_class = []
     
     with torch.no_grad():
-        for images, image_names in tqdm(data_loader, total=len(data_loader)):
-            images = images.cuda()
-            outputs = model(images)
+        for imgs, image_names in tqdm(data_loader):
+            imgs = imgs.cuda()
             
-            # Restore original size and apply sigmoid
-            outputs = F.interpolate(outputs, size=(2048, 2048), mode="bilinear")
-            outputs = torch.sigmoid(outputs)
-            outputs = (outputs > thr).detach().cpu().numpy()
+            # 모델 추론
+            masks = model(imgs)
+            masks = torch.sigmoid(masks)
+            masks = (masks > thr).detach().cpu().numpy()
             
-            # Process each image in batch
-            for output, image_name in zip(outputs, image_names):
-                for c, segm in enumerate(output):
+            # batch 내 각 이미지에 대해 처리
+            for i, mask in enumerate(masks):
+                for c, segm in enumerate(mask):
                     rle = encode_mask_to_rle(segm)
                     rles.append(rle)
-                    filename_and_class.append(f"{IND2CLASS[c]}_{image_name}")
+                    filename_and_class.append(f"{IND2CLASS[c]}_{image_names[i]}")
     
     return rles, filename_and_class
+
+if __name__ == "__main__":
+    test()
 

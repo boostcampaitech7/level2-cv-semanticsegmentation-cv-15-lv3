@@ -4,7 +4,7 @@ import json
 import numpy as np
 import torch
 from torch.utils.data import Dataset
-from config import IMAGE_ROOT, LABEL_ROOT, CLASSES, CLASS2IND
+from config import IMAGE_ROOT, LABEL_ROOT, CLASSES, CLASS2IND, TEST_IMAGE_ROOT
 
 class XRayDataset(Dataset):
     def __init__(self, filenames, labelnames, transforms=None, is_train=False):
@@ -69,8 +69,8 @@ class XRayInferenceDataset(Dataset):
 
     def _get_png_files(self):
         return {
-            os.path.relpath(os.path.join(root, fname), start=IMAGE_ROOT)
-            for root, _dirs, files in os.walk(IMAGE_ROOT)
+            os.path.relpath(os.path.join(root, fname), start=TEST_IMAGE_ROOT)
+            for root, _dirs, files in os.walk(TEST_IMAGE_ROOT)
             for fname in files
             if os.path.splitext(fname)[1].lower() == ".png"
         }
@@ -80,7 +80,7 @@ class XRayInferenceDataset(Dataset):
 
     def __getitem__(self, item):
         image_name = self.filenames[item]
-        image_path = os.path.join(IMAGE_ROOT, image_name)
+        image_path = os.path.join(TEST_IMAGE_ROOT, image_name)
         image = cv2.imread(image_path) / 255.0
 
         if self.transforms is not None:
