@@ -184,6 +184,7 @@ def train():
     
     # Training loop
     best_dice = 0.
+    global_step = 0  # 전역 step 카운터 추가
     for epoch in range(Config.NUM_EPOCHS):
         epoch_start = time.time()
         model.train()
@@ -214,7 +215,8 @@ def train():
                 wandb.log({
                     "Step Loss": loss.item(),
                     "Learning Rate": optimizer.param_groups[0]['lr']
-                }, step=epoch * len(train_loader) + step)
+                }, step=global_step)
+                global_step += 1
 
         # 에포크 종료 시간 계산
         epoch_time = time.time() - epoch_start
@@ -229,10 +231,11 @@ def train():
         ))
         
         # Epoch 단위 로깅 - step을 epoch * len(train_loader)로 설정
+        # Epoch 단위 로깅
         wandb.log({
             "Epoch": epoch + 1,
             "Train Loss": avg_epoch_loss,
-        }, step=epoch * len(train_loader))
+        }, step=global_step)
         
         if (epoch + 1) % Config.VAL_EVERY == 0:
             dice, dice_dict, val_loss = validation(
@@ -245,12 +248,12 @@ def train():
             # else:
             #     scheduler.step()      # 다른 스케줄러들은 단순히 step
             
-            # Validation 결과 로깅 - 같은 step 사용
+            # Validation 결과 로깅
             wandb.log({
                 "Validation Loss": val_loss,
                 "Average Dice Score": dice,
                 **dice_dict,
-            }, step=epoch * len(train_loader))
+            }, step=global_step)
 
             if best_dice < dice:
                 print(f"Best performance at epoch: {epoch + 1}, {best_dice:.4f} -> {dice:.4f}")
@@ -258,11 +261,11 @@ def train():
                 best_dice = dice
                 torch.save(model, os.path.join(Config.SAVED_DIR, "best_model.pt"))
 
-                # Best 모델 정보 로깅 - 같은 step 사용
+                # Best 모델 정보 로깅
                 wandb.log({
                     "Best Dice Score": dice,
                     "Best Model Epoch": epoch + 1
-                }, step=epoch * len(train_loader))
+                }, step=global_step)
 
             # Scheduler step 로깅
             # if scheduler is not None:
