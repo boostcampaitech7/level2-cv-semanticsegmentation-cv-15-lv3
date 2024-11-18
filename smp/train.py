@@ -8,6 +8,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 from torch.utils.data import DataLoader
+from torch.cuda.amp import autocast, GradScaler
 from tqdm.auto import tqdm
 
 from config.config import Config
@@ -50,11 +51,16 @@ def validation(epoch, model, data_loader, criterion, device, threshold=0.5):
     
     with torch.no_grad():
         with tqdm(total=len(data_loader), desc=f'[Validation Epoch {epoch}]') as pbar:
-            for step, (images, masks) in enumerate(data_loader):
-                # Move data to GPU
-                images = images.to(device)
-                masks = masks.to(device)
-                
+            for images, masks in data_loader:
+                # 데이터 타입 검증
+                if not (isinstance(images, torch.Tensor) and isinstance(masks, torch.Tensor)):
+                    raise ValueError(
+                        f"Expected images and masks to be torch.Tensor, but got images: {type(images)}, masks: {type(masks)}"
+                    )
+            
+                images = images.to(device, non_blocking=False) # non_blocking=True: CPU -> GPU 전송 시작 후 전송 완료되기 전 다음 코드 실행
+                masks = masks.to(device, non_blocking=False)
+            
                 # Forward pass
                 outputs = model(images)
                 
@@ -63,17 +69,17 @@ def validation(epoch, model, data_loader, criterion, device, threshold=0.5):
                 mask_h, mask_w = masks.size(-2), masks.size(-1)
                 if output_h != mask_h or output_w != mask_w:
                     outputs = F.interpolate(outputs, size=(mask_h, mask_w), mode="bilinear")
-                
+            
                 # Calculate loss
                 loss = criterion(outputs, masks)
                 total_loss += loss.item()
-                
+            
                 # Calculate dice score on GPU
                 outputs = torch.sigmoid(outputs)
                 outputs = (outputs > threshold)
                 dice = dice_coef(outputs, masks)
                 dices.append(dice.detach().cpu())
-                
+            
                 # Update progress bar
                 pbar.update(1)
                 pbar.set_postfix(
@@ -118,6 +124,9 @@ def train():
     # Device 설정
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     
+    # Mixed precision training
+    scaler = GradScaler()
+
     # 모델 준비
     model = get_model(num_classes=len(Config.CLASSES)).to(device)
     criterion = Loss.get_criterion(Config.LOSS_TYPE)
@@ -150,17 +159,19 @@ def train():
     # DataLoader
     train_loader = DataLoader(
         dataset=train_dataset,
-        batch_size=Config.BATCH_SIZE,
+        batch_size=Config.TRAIN_BATCH_SIZE,
         shuffle=True,
         num_workers=8,
+        pin_memory=True,
         drop_last=True,
     )
     
     valid_loader = DataLoader(
         dataset=valid_dataset,
-        batch_size=Config.BATCH_SIZE,
+        batch_size=Config.VAL_BATCH_SIZE,
         shuffle=False,
         num_workers=4,
+        pin_memory=True,
         drop_last=False
     )
     
@@ -174,12 +185,14 @@ def train():
             images = images.to(device)
             masks = masks.to(device)
             
-            outputs = model(images)
-            loss = criterion(outputs, masks)
+            with autocast(enabled=True):
+                outputs = model(images)
+                loss = criterion(outputs, masks)
             
             optimizer.zero_grad()
-            loss.backward()
-            optimizer.step()
+            scaler.scale(loss).backward()
+            scaler.step(optimizer)
+            scaler.update()
             
             if (step + 1) % 25 == 0:
                 print(
