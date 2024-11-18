@@ -3,6 +3,7 @@ import time
 import datetime
 import random
 import numpy as np
+import wandb
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -10,7 +11,7 @@ import torch.optim as optim
 from torch.utils.data import DataLoader
 from torch.cuda.amp import autocast, GradScaler
 from tqdm.auto import tqdm
-
+from datetime import timedelta
 from config.config import Config
 from dataset.dataset import XRayDataset
 from models.model import get_model
@@ -18,6 +19,7 @@ from utils.metrics import dice_coef
 from dataset.transforms import Transforms
 from models.loss import Loss
 from models.scheduler import Scheduler
+from utils.wandb import init_wandb
 
 def set_seed(seed):
     torch.manual_seed(seed)
@@ -43,6 +45,7 @@ def validation(epoch, model, data_loader, criterion, device, threshold=0.5):
     Returns:
         tuple: (average_dice, class_dice_dict, average_loss)
     """
+    print(f"\nValidation Epoch {epoch}")
     val_start = time.time()
     model.eval()
     
@@ -50,41 +53,42 @@ def validation(epoch, model, data_loader, criterion, device, threshold=0.5):
     dices = []
     
     with torch.no_grad():
-        with tqdm(total=len(data_loader), desc=f'[Validation Epoch {epoch}]') as pbar:
-            for images, masks in data_loader:
-                # 데이터 타입 검증
-                if not (isinstance(images, torch.Tensor) and isinstance(masks, torch.Tensor)):
-                    raise ValueError(
-                        f"Expected images and masks to be torch.Tensor, but got images: {type(images)}, masks: {type(masks)}"
-                    )
+        for step, (images, masks) in enumerate(data_loader):
+            # 데이터 타입 검증
+            if not (isinstance(images, torch.Tensor) and isinstance(masks, torch.Tensor)):
+                raise ValueError(
+                    f"Expected images and masks to be torch.Tensor, but got images: {type(images)}, masks: {type(masks)}"
+                )
+        
+            images = images.to(device, non_blocking=False)
+            masks = masks.to(device, non_blocking=False)
+        
+            # Forward pass
+            outputs = model(images)
             
-                images = images.to(device, non_blocking=False) # non_blocking=True: CPU -> GPU 전송 시작 후 전송 완료되기 전 다음 코드 실행
-                masks = masks.to(device, non_blocking=False)
+            # Resize outputs if needed
+            output_h, output_w = outputs.size(-2), outputs.size(-1)
+            mask_h, mask_w = masks.size(-2), masks.size(-1)
+            if output_h != mask_h or output_w != mask_w:
+                outputs = F.interpolate(outputs, size=(mask_h, mask_w), mode="bilinear")
+        
+            # Calculate loss
+            loss = criterion(outputs, masks)
+            total_loss += loss.item()
+        
+            # Calculate dice score
+            outputs = torch.sigmoid(outputs)
+            outputs = (outputs > threshold)
+            dice = dice_coef(outputs, masks)
+            dices.append(dice.detach().cpu())
             
-                # Forward pass
-                outputs = model(images)
-                
-                # Resize outputs if needed
-                output_h, output_w = outputs.size(-2), outputs.size(-1)
-                mask_h, mask_w = masks.size(-2), masks.size(-1)
-                if output_h != mask_h or output_w != mask_w:
-                    outputs = F.interpolate(outputs, size=(mask_h, mask_w), mode="bilinear")
-            
-                # Calculate loss
-                loss = criterion(outputs, masks)
-                total_loss += loss.item()
-            
-                # Calculate dice score on GPU
-                outputs = torch.sigmoid(outputs)
-                outputs = (outputs > threshold)
-                dice = dice_coef(outputs, masks)
-                dices.append(dice.detach().cpu())
-            
-                # Update progress bar
-                pbar.update(1)
-                pbar.set_postfix(
-                    dice=torch.mean(dice).item(),
-                    loss=loss.item()
+            # 진행상황 출력 (10 step마다)
+            if (step + 1) % 10 == 0:
+                print(
+                    f'{datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")} | '
+                    f'Step [{step+1}/{len(data_loader)}], '
+                    f'Loss: {round(loss.item(),4)}, '
+                    f'Dice: {round(torch.mean(dice).item(),4)}'
                 )
     
     # Calculate validation time
@@ -121,6 +125,9 @@ def validation(epoch, model, data_loader, criterion, device, threshold=0.5):
 def train():
     set_seed(Config.RANDOM_SEED)
     
+    # Wandb 초기화
+    init_wandb()
+
     # Device 설정
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     
@@ -176,10 +183,11 @@ def train():
     )
     
     # Training loop
-    # Training loop
     best_dice = 0.
     for epoch in range(Config.NUM_EPOCHS):
+        epoch_start = time.time()
         model.train()
+        epoch_loss = 0
         
         for step, (images, masks) in enumerate(train_loader):
             images = images.to(device)
@@ -193,6 +201,8 @@ def train():
             scaler.scale(loss).backward()
             scaler.step(optimizer)
             scaler.update()
+
+            epoch_loss += loss.item()
             
             if (step + 1) % 25 == 0:
                 print(
@@ -201,6 +211,28 @@ def train():
                     f'Step [{step+1}/{len(train_loader)}], '
                     f'Loss: {round(loss.item(),4)}'
                 )
+                wandb.log({
+                    "Step Loss": loss.item(),
+                    "Learning Rate": optimizer.param_groups[0]['lr']
+                }, step=epoch * len(train_loader) + step)
+
+        # 에포크 종료 시간 계산
+        epoch_time = time.time() - epoch_start
+
+        # 평균 loss 계산 및 출력
+        avg_epoch_loss = epoch_loss / len(train_loader)
+        print("Epoch {}, Train Loss: {:.4f} || Elapsed time: {} || ETA: {}\n".format(
+            epoch + 1,
+            avg_epoch_loss,
+            timedelta(seconds=epoch_time),
+            timedelta(seconds=epoch_time * (Config.NUM_EPOCHS - epoch - 1))
+        ))
+        
+        # Epoch 단위 로깅
+        wandb.log({
+            "Epoch": epoch + 1,
+            "Train Loss": avg_epoch_loss,
+        }, step=epoch)
         
         if (epoch + 1) % Config.VAL_EVERY == 0:
             dice, dice_dict, val_loss = validation(
@@ -218,11 +250,36 @@ def train():
             # else:
             #     scheduler.step()      # 다른 스케줄러들은 단순히 step
             
+            # Validation 결과 로깅
+            wandb.log({
+                "Validation Loss": val_loss,
+                "Average Dice Score": dice,
+                **dice_dict,  # 각 클래스별 dice score
+            }, step=epoch)
+
             if best_dice < dice:
                 print(f"Best performance at epoch: {epoch + 1}, {best_dice:.4f} -> {dice:.4f}")
                 print(f"Save model in {Config.SAVED_DIR}")
                 best_dice = dice
                 torch.save(model, os.path.join(Config.SAVED_DIR, "best_model.pt"))
+
+                # Best 모델 정보 로깅
+                wandb.log({
+                    "Best Dice Score": dice,
+                    "Best Model Epoch": epoch + 1
+                }, step=epoch)
+
+            # Scheduler step 로깅
+            # if scheduler is not None:
+            #     if Config.SCHEDULER_TYPE == "reduce":
+            #         scheduler.step(dice)
+            #     else:
+            #         scheduler.step()
+            #     wandb.log({
+            #         "Learning Rate": optimizer.param_groups[0]['lr']
+            #     }, step=epoch)
+    
+    wandb.finish()
 
 if __name__ == "__main__":
     train()
