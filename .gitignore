@@ -115,6 +115,7 @@ data
 *.pkl
 *.pkl.json
 *.log.json
+*.csv
 docs/modelzoo_statistics.md
 mmdet/.mim
 work_dirs/
