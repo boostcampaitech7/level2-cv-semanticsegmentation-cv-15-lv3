@@ -23,20 +23,20 @@ NUM_EPOCHS =30
 VAL_EVERY = 1
 IMSIZE=512
 LR = 0.0001
-MILESTONES=[6,16,23,27]
+MILESTONES=[7,16,23,27]
 GAMMA=0.3
 
 
 SAVED_DIR = "/data/ephemeral/home/MCG/UNetRefactored/Creadted_model/"
-MODELNAME="best_NewModel.pt"
+MODELNAME="Best_AddedCGM.pt"
 if not os.path.isdir(SAVED_DIR):
     os.mkdir(SAVED_DIR)
     
 
 
-INFERENCE_MODEL_NAME="best_NewModel.pt"
+INFERENCE_MODEL_NAME="Best_AddedCGM.pt"
 
 TEST_IMAGE_ROOT="/data/ephemeral/home/MCG/data/test/DCM"
 
 CSVDIR="/data/ephemeral/home/MCG/UNetRefactored/CSV"
-CSVNAME="New_mmm"
+CSVNAME="CGM_ReNew.CSV"
