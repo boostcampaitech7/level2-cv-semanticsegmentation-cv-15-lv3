@@ -99,15 +99,15 @@ class MSSSIM(torch.nn.Module):
     
     
 class CombinedLoss(nn.Module):
-    def __init__(self, alpha=1, beta=1, gamma=1, delta=1, smooth=1e-6, channel=3):
+    def __init__(self, focal_weight=1, iou_weight=1, ms_ssim_weight=1, dice_weight=1, smooth=1e-6, channel=3):
         """
         Combined Loss = alpha * Focal Loss + beta * IoU Loss + gamma * MS-SSIM Loss + delta * Dice Loss
         """
         super(CombinedLoss, self).__init__()
-        self.alpha = alpha  # Weight for Focal Loss
-        self.beta = beta    # Weight for IoU Loss
-        self.gamma = gamma  # Weight for MS-SSIM Loss
-        self.delta = delta  # Weight for Dice Loss
+        self.alpha = focal_weight  # Weight for Focal Loss
+        self.beta = iou_weight    # Weight for IoU Loss
+        self.gamma = ms_ssim_weight  # Weight for MS-SSIM Loss
+        self.delta = dice_weight  # Weight for Dice Loss
         self.smooth = smooth
         self.ms_ssim = MSSSIM(window_size=11, size_average=True, channel=channel)
 
@@ -138,11 +138,11 @@ class CombinedLoss(nn.Module):
     def forward(self, logits, targets):
         # Calculate individual losses
         focal = self.focal_loss(logits, targets)
-        iou = self.iou_loss(logits, targets)
+        #iou = self.iou_loss(logits, targets)
         ms_ssim_loss = 1 - self.ms_ssim(torch.sigmoid(logits), targets)
         dice = self.dice_loss(logits, targets)
 
         # Combine losses with respective weights
-        total_loss = self.alpha * focal + self.beta * iou + self.gamma * ms_ssim_loss + self.delta * dice
+        total_loss = self.alpha * focal  + self.gamma * ms_ssim_loss + self.delta * dice #+ self.beta * iou
         return total_loss
 
