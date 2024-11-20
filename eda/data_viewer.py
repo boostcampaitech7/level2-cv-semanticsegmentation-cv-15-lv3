@@ -4,6 +4,7 @@ import pandas as pd
 import cv2
 import matplotlib.pyplot as plt
 import streamlit as st
+import os
 from pathlib import Path
 import glob
 
@@ -123,6 +124,92 @@ def visualize_bones(img, annotations, selected_bones=None, show_labels=True, thi
     
     return vis_img
 
+def visualize_bones_from_rle(img, csv_data, selected_bones=None, show_labels=True, thickness=2):
+    """RLE 데이터로부터 뼈를 시각화하는 함수"""
+    vis_img = img.copy()
+    height, width = img.shape[:2]
+    
+    # 모든 가능한 뼈 이름으로 고정된 색상 맵 생성
+    all_bone_names = sorted(list(set(csv_data['class'].unique())))
+    color_map = {}
+    colors = plt.cm.rainbow(np.linspace(0, 1, len(all_bone_names)))
+    colors = (colors[:, :3] * 255).astype(np.uint8)
+    
+    for i, bone_name in enumerate(all_bone_names):
+        color_map[bone_name] = colors[i].tolist()
+    
+    for bone in all_bone_names:
+        if selected_bones is None or bone in selected_bones:
+            bone_data = csv_data[csv_data['class'] == bone]
+            if not bone_data.empty:
+                rle = bone_data.iloc[0]['rle']
+                bone_mask = decode_rle_to_mask(rle, height, width)
+                
+                # 윤곽선 찾기
+                contours, _ = cv2.findContours(bone_mask.astype(np.uint8), 
+                                             cv2.RETR_EXTERNAL, 
+                                             cv2.CHAIN_APPROX_SIMPLE)
+                
+                # 윤곽선 그리기
+                if thickness == cv2.FILLED:
+                    cv2.fillPoly(vis_img, contours, color_map[bone])
+                else:
+                    cv2.drawContours(vis_img, contours, -1, color_map[bone], thickness)
+                
+                # 라벨 표시
+                if show_labels and contours:
+                    # 가장 큰 윤곽선의 중심점 찾기
+                    largest_contour = max(contours, key=cv2.contourArea)
+                    M = cv2.moments(largest_contour)
+                    if M["m00"] != 0:
+                        center = np.array([
+                            int(M["m10"] / M["m00"]),
+                            int(M["m01"] / M["m00"])
+                        ])
+                        
+                        # 텍스트 배경 추가
+                        text = bone
+                        font = cv2.FONT_HERSHEY_SIMPLEX
+                        font_scale = 0.6
+                        thickness_text = 2
+                        
+                        # 텍스트 크기 계산
+                        (text_width, text_height), baseline = cv2.getTextSize(
+                            text, font, font_scale, thickness_text
+                        )
+                        
+                        # 텍스트 배경 박스 그리기
+                        padding = 5
+                        cv2.rectangle(vis_img, 
+                                    (center[0] - text_width//2 - padding, 
+                                     center[1] - text_height - padding),
+                                    (center[0] + text_width//2 + padding, 
+                                     center[1] + padding),
+                                    (255, 255, 255),  # 흰색 배경
+                                    -1)  # 채우기
+                        
+                        # 텍스트 그리기
+                        cv2.putText(vis_img, text,
+                                   (center[0] - text_width//2, center[1]),
+                                   font,
+                                   font_scale,
+                                   color_map[bone],  # 뼈와 같은 색상 사용
+                                   thickness_text)
+    
+    return vis_img
+
+def decode_rle_to_mask(rle, height, width):
+    s = rle.split()
+    starts, lengths = [np.asarray(x, dtype=int) for x in (s[0:][::2], s[1:][::2])]
+    starts -= 1
+    ends = starts + lengths
+    img = np.zeros(height * width, dtype=np.uint8)
+    
+    for lo, hi in zip(starts, ends):
+        img[lo:hi] = 1
+        
+    return img.reshape(height, width)
+
 def main():
     st.set_page_config(layout="wide")
     st.title("Hand Bone X-ray Visualization")
@@ -155,13 +242,26 @@ def main():
         
         # Test 데이터셋인 경우 CSV 파일 업로드
         if dataset_type == "Test":
-            uploaded_file = st.file_uploader("Upload test CSV file", type=['csv'])
-            if uploaded_file is not None:
-                st.session_state.test_csv = pd.read_csv(uploaded_file)
-                st.success("Test CSV file loaded successfully!")
+            csv_folder = "./csv"  # CSV 파일들이 있는 폴더 경로
+            csv_files = [f for f in os.listdir(csv_folder) if f.endswith('.csv')]
+            
+            selected_csv = st.selectbox(
+                "Select CSV file:",
+                options=csv_files,
+                index=0 if csv_files else None
+            )
+            
+            if selected_csv:
+                csv_path = os.path.join(csv_folder, selected_csv)
+                st.session_state.test_csv = pd.read_csv(csv_path)
+                st.success(f"Loaded: {selected_csv}")
         
-        # 기본 경로 설정
-        base_path = f"../data/{dataset_type.lower()}/outputs_json"
+        # base_path 수정 (test의 경우 json 폴더 대신 다른 경로 사용)
+        if dataset_type == "Train":
+            base_path = "../data/train/outputs_json"
+        else:
+            base_path = "../data/test/DCM"  # test 이미지가 있는 경로
+
         id_folders = get_id_folders(base_path)
         
         if not id_folders:  # 폴더가 비어있는 경우
@@ -208,29 +308,29 @@ def main():
                 
             line_thickness = st.slider("Line thickness", 1, 5, 2)
             
-            # 뼈 선택 (맨 아래로 이동)
-            if selected_id:
-                st.subheader("Bone Selection")
-                hand_data = read_hand_jsons(selected_id)
-                
-                # 모든 가능한 뼈 목록 생성
-                all_bones = set()
-                for hand_info in hand_data.values():
-                    if hand_info is not None and 'annotations' in hand_info:
-                        all_bones.update(hand_info['annotations'].keys())
-                
-                if all_bones:
-                    selected_bones = st.multiselect(
-                        "Select bones to visualize:",
-                        sorted(list(all_bones)),
-                        default=sorted(list(all_bones))
-                    )
+            # 뼈 선택
+            st.subheader("Bone Selection")
+            known_classes = ['Capitate', 'Hamate', 'Lunate', 'Pisiform', 'Radius',
+                           'Scaphoid', 'Trapezium', 'Trapezoid', 'Triquetrum', 'Ulna'] + \
+                          [f'finger-{i}' for i in range(1, 20)]
+            selected_bones = st.multiselect(
+                "Select bones to visualize:",
+                sorted(known_classes),
+                default=sorted(known_classes)
+            )
+        else:
+            show_mask = False
+            show_labels = False
+            show_contours = False
+            mask_opacity = 0.5
+            line_thickness = 2
+            selected_bones = []
             
     # 메인 영역에 이미지 표시
     if selected_id:
         col1, col2 = st.columns(2)
 
-        if dataset_type == "Train" or (dataset_type == "Test" and st.session_state.test_csv is not None):
+        if dataset_type == "Train":
             hand_data = read_hand_jsons(selected_id)
         
             for hand_type, data in hand_data.items():
@@ -280,20 +380,60 @@ def main():
                     st.error(f"Cannot load image: {img_path}")
 
         else:
-            # Test 데이터셋이고 CSV가 없는 경우 이미지만 표시
-            for hand_type in ['Left', 'Right']:
-                img_path = str(Path(base_path).parent.parent / 'test/DCM' / selected_id.name / f"{selected_id.name}_{hand_type[0]}.png")
-                img = cv2.imread(img_path)
-                if img is not None:
-                    img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-                    if hand_type == 'Left':
-                        with col1:
-                            st.subheader(f"{hand_type} Hand")
-                            st.image(img, use_column_width=True)
+            for hand_type in ['Right', 'Left']:
+                img_files = list(Path(base_path).glob(f"{selected_id.name}/*.png"))
+                
+                if len(img_files) > 0:
+                    img_path = str(img_files[0] if hand_type == 'Right' else img_files[1])
+                    img_filename = Path(img_path).name
+                    
+                    img = cv2.imread(img_path)
+                    if img is not None:
+                        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+                        
+                        # CSV가 로드되었을 때만 마스크와 윤곽선 표시
+                        if st.session_state.test_csv is not None:
+                            height, width = img.shape[:2]
+                            csv_data = st.session_state.test_csv[
+                                st.session_state.test_csv['image_name'] == img_filename
+                            ]
+                            
+                            result_img = img.copy()
+                            
+                            # 마스크 처리
+                            if show_mask:
+                                mask_img = visualize_bones_from_rle(
+                                    np.zeros_like(img),
+                                    csv_data,
+                                    selected_bones,
+                                    show_labels=False,
+                                    thickness=cv2.FILLED
+                                )
+                                result_img = cv2.addWeighted(result_img, 1, mask_img, mask_opacity, 0)
+                            
+                            # 윤곽선과 라벨 처리
+                            if show_contours:
+                                result_img = visualize_bones_from_rle(
+                                    result_img,
+                                    csv_data,
+                                    selected_bones,
+                                    show_labels=show_labels,
+                                    thickness=line_thickness
+                                )
+                            
+                            img = result_img
+                        
+                        # 이미지 표시
+                        if hand_type == 'Left':
+                            with col1:
+                                st.subheader(f"{hand_type} Hand")
+                                st.image(img, use_column_width=True)
+                        else:
+                            with col2:
+                                st.subheader(f"{hand_type} Hand")
+                                st.image(img, use_column_width=True)
                     else:
-                        with col2:
-                            st.subheader(f"{hand_type} Hand")
-                            st.image(img, use_column_width=True)
+                        st.error(f"Cannot load image: {img_path}")
 
 if __name__ == "__main__":
     main()
