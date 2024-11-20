@@ -19,7 +19,7 @@ def train(model, data_loader, val_loader, criterion, optimizer,scheduler):
     best_dice = 0.
 
     # 손실 가중치 (Deep Supervision)
-    deep_sup_weights = [0.3, 0.3, 0.2, 0.15, 0.15]  # 각 출력에 대한 가중치
+    deep_sup_weights = [0.4, 0.35, 0.25, 0.2, 0.2]  # 각 출력에 대한 가중치
 
     # 스케줄러 추가 (선택적)
 
