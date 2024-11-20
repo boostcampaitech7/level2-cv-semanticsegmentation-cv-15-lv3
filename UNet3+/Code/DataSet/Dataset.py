@@ -41,6 +41,10 @@ class XRayDataset(Dataset):
         # iterate each class
         for ann in annotations:
             c = ann["label"]
+            
+            if c not in CLASSES:
+                continue
+            
             class_ind = CLASS2IND[c]
             points = np.array(ann["points"])
 
