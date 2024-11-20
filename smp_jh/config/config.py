@@ -7,8 +7,8 @@ class Config:
     TEST_IMAGE_ROOT = "../data/test/DCM"
     
     # Model
-    MODEL_ARCHITECTURE = 'UnetPlusPlus' # [Unet, UnetPlusPlus, FPN, PSPNet, DeepLabV3, DeepLabV3Plus, LinkNet, MAnet, PAN, UPerNet]
-    ENCODER_NAME = 'tu-hrnet_w64' # encoder 이름 Timm encoder 사용시 이름 앞에 tu- 붙임
+    MODEL_ARCHITECTURE = 'DeepLabV3Plus' # [Unet, UnetPlusPlus, FPN, PSPNet, DeepLabV3, DeepLabV3Plus, LinkNet, MAnet, PAN, UPerNet]
+    ENCODER_NAME = 'tu-xception71' # encoder 이름 Timm encoder 사용시 이름 앞에 tu- 붙임
     ENCODER_WEIGHTS = 'imagenet' # pretrained weights
 
     TRAIN_BATCH_SIZE = 2
@@ -27,7 +27,7 @@ class Config:
     MIN_LR = 1e-6
     
     WANDB = {
-        "api_key": "개인 key 작성",
+        "api_key": "your_api_key",
         "project_name": "Hand_bone_segmentation",
         "experiment_detail": f"{MODEL_ARCHITECTURE}_{ENCODER_NAME}_batch{TRAIN_BATCH_SIZE}_{NUM_EPOCHS}ep",
         "model_name": MODEL_ARCHITECTURE,
