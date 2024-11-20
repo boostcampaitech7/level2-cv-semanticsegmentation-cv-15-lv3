@@ -3,7 +3,7 @@ import torch.nn as nn
 import torchvision.models as models
 
 from config import IMSIZE
-
+import numpy as np
 from Util.InitWeights import init_weights
 from Util.SetSeed import set_seed
 from .layer import unetConv2
@@ -192,7 +192,12 @@ class UNet_3Plus_DeepSup(nn.Module):
         self.outconv3 = nn.Conv2d(self.UpChannels, n_classes, 3, padding=1)
         self.outconv4 = nn.Conv2d(self.UpChannels, n_classes, 3, padding=1)
         self.outconv5 = nn.Conv2d(filters[4], n_classes, 3, padding=1)
-
+        self.cls = nn.Sequential(
+            nn.Dropout(p=0.2),               # Dropout으로 오버피팅 방지
+            nn.Conv2d(filters[4], n_classes, 1),  # 클래스 수 반영
+            nn.AdaptiveMaxPool2d(1),         # 클래스별 전역 정보 추출
+            nn.Sigmoid()                     # 멀티라벨 환경에서 클래스 존재 확률 출력
+        )
         # initialise weights
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
@@ -200,6 +205,14 @@ class UNet_3Plus_DeepSup(nn.Module):
             elif isinstance(m, nn.BatchNorm2d):
                 init_weights(m, init_type='kaiming')
 
+    
+    def dotProduct(self,seg,cls):
+        B, N, H, W = seg.size()
+        seg = seg.view(B, N, H * W)
+        final = torch.einsum("ijk,ij->ijk", [seg, cls])
+        final = final.view(B, N, H, W)
+        return final
+    
     def forward(self, inputs):
         ## -------------Encoder-------------
         h1 = self.conv1(inputs)  # h1->320*320*64
@@ -213,6 +226,12 @@ class UNet_3Plus_DeepSup(nn.Module):
         h4 = self.conv4(h3)
         hd5 = self.conv5(h4)  # h5->20*20*1024
 
+        # -------------Classification-------------
+        cls_branch = self.cls(hd5).squeeze(3).squeeze(2)  # (B, N, 1, 1) -> (B, N)
+        threshold = 0.5
+        cls_branch_mask = (cls_branch > threshold).float()  # (B, N), 각 클래스 존재 여부
+
+        
         ## -------------Decoder-------------
         h1_PT_hd4 = self.h1_PT_hd4_relu(self.h1_PT_hd4_bn(self.h1_PT_hd4_conv(self.h1_PT_hd4(h1))))
         h2_PT_hd4 = self.h2_PT_hd4_relu(self.h2_PT_hd4_bn(self.h2_PT_hd4_conv(self.h2_PT_hd4(h2))))
@@ -259,6 +278,12 @@ class UNet_3Plus_DeepSup(nn.Module):
         d2 = self.upscore2(d2) # 128->256
 
         d1 = self.outconv1(hd1) # 256
+        
+        d1 = self.dotProduct(d1, cls_branch_mask)
+        d2 = self.dotProduct(d2, cls_branch_mask)
+        d3 = self.dotProduct(d3, cls_branch_mask)
+        d4 = self.dotProduct(d4, cls_branch_mask)
+        d5 = self.dotProduct(d5, cls_branch_mask)
         
         
         if self.training:

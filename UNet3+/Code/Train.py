@@ -19,7 +19,7 @@ def train(model, data_loader, val_loader, criterion, optimizer,scheduler):
     best_dice = 0.
 
     # 손실 가중치 (Deep Supervision)
-    #deep_sup_weights = [0.4, 0.4, 0.2, 0.1, 0.1]  # 각 출력에 대한 가중치
+    deep_sup_weights = [0.4, 0.4, 0.2, 0.1, 0.1]  # 각 출력에 대한 가중치
 
     # 스케줄러 추가 (선택적)
 
@@ -42,7 +42,7 @@ def train(model, data_loader, val_loader, criterion, optimizer,scheduler):
                 total_loss = 0.0
                 for i, output in enumerate(outputs):
                     loss = criterion(output, masks)  # 각 출력의 손실 계산
-                    total_loss +=  loss #* deep_sup_weights[i]  # 가중치를 곱해 합산
+                    total_loss +=  loss * deep_sup_weights[i]  # 가중치를 곱해 합산
             else:  # 출력이 단일 텐서인 경우 (예외 처리)
                 total_loss = criterion(outputs, masks)
 
