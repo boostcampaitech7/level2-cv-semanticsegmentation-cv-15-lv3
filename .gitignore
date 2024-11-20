@@ -126,3 +126,6 @@ work_dirs/
 *.pt
 *.jpg
 *.json
+
+# wandb
+wandb/
