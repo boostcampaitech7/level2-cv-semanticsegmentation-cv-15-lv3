@@ -38,11 +38,3 @@ def get_image_label_paths(IMAGE_ROOT, LABEL_ROOT=None):
     return pngs, jsons
 
 
-
-def get_test_images(TEST_IMAGE_ROOT):
-    pngs = {
-    os.path.relpath(os.path.join(root, fname), start=TEST_IMAGE_ROOT)
-    for root, _dirs, files in os.walk(TEST_IMAGE_ROOT)
-    for fname in files
-    if os.path.splitext(fname)[1].lower() == ".png"
-}

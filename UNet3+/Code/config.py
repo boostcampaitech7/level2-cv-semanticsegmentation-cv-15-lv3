@@ -34,9 +34,9 @@ if not os.path.isdir(SAVED_DIR):
     
 
 
-INFERENCE_MODEL_NAME="best_HybridLoss_ChangeSet.pt"
+INFERENCE_MODEL_NAME="best_NewModel.pt"
 
 TEST_IMAGE_ROOT="/data/ephemeral/home/MCG/data/test/DCM"
 
-CSVDIR=""
-CSVNAME=""
+CSVDIR="/data/ephemeral/home/MCG/UNetRefactored/CSV"
+CSVNAME="New_mmm"

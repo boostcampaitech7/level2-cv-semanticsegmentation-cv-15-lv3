@@ -3,8 +3,7 @@ import cv2
 import numpy as np
 import json
 import torch
-from config import CLASS2IND, CLASSES, IMAGE_ROOT, LABEL_ROOT,TEST_IMAGE_ROOT
-from DataLoder import get_test_images
+from config import CLASS2IND, CLASSES, IMAGE_ROOT, LABEL_ROOT
 from Util.SetSeed import set_seed
 
 set_seed()
@@ -68,34 +67,3 @@ class XRayDataset(Dataset):
     
     
     
-    
-class XRayInferenceDataset(Dataset):
-    def __init__(self, transforms=None):
-        pngs=get_test_images(TEST_IMAGE_ROOT)
-        _filenames = pngs
-        _filenames = np.array(sorted(_filenames))
-
-        self.filenames = _filenames
-        self.transforms = transforms
-
-    def __len__(self):
-        return len(self.filenames)
-
-    def __getitem__(self, item):
-        image_name = self.filenames[item]
-        image_path = os.path.join(IMAGE_ROOT, image_name)
-
-        image = cv2.imread(image_path)
-        image = image / 255.
-
-        if self.transforms is not None:
-            inputs = {"image": image}
-            result = self.transforms(**inputs)
-            image = result["image"]
-
-        # to tenser will be done later
-        image = image.transpose(2, 0, 1)    # make channel first
-
-        image = torch.from_numpy(image).float()
-
-        return image, image_name

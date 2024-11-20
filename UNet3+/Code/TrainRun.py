@@ -10,7 +10,7 @@ import torch.optim as optim
 from torch.utils.data import DataLoader
 
 
-from Model.U3PModelV2 import UNet_3Plus_DeepSup
+from Model.FixedModel import UNet_3Plus_DeepSup
 from DataSet.DataLoder import get_image_label_paths
 from config import IMAGE_ROOT,LABEL_ROOT,BATCH_SIZE,IMSIZE,CLASSES,MILESTONES, GAMMA,LR
 from DataSet.Dataset import XRayDataset
