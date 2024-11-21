@@ -1,25 +1,21 @@
 import os
 
-IMAGE_ROOT = "/data/ephemeral/home/MCG/data/train/DCM"
-LABEL_ROOT = "/data/ephemeral/home/MCG/data/train/outputs_json"
+IMAGE_ROOT = "../../data/train/DCM"
+LABEL_ROOT = "../../data/train/outputs_json"
 CLASSES = [
-    'finger-1', 'finger-2', 'finger-3', 'finger-4', 'finger-5',
-    'finger-6', 'finger-7', 'finger-8', 'finger-9', 'finger-10',
-    'finger-11', 'finger-12', 'finger-13', 'finger-14', 'finger-15',
-    'finger-16', 'finger-17', 'finger-18', 'finger-19', 'Trapezium',
+    'Trapezium',
     'Trapezoid', 'Capitate', 'Hamate', 'Scaphoid', 'Lunate',
-    'Triquetrum', 'Pisiform', 'Radius', 'Ulna',
+    'Triquetrum', 'Pisiform'
 ]
 
 CLASS2IND = {v: i for i, v in enumerate(CLASSES)}
-
 IND2CLASS = {v: k for k, v in CLASS2IND.items()}
 
 BATCH_SIZE = 1
 RANDOM_SEED = 21
 
 # 적절하게 조절
-NUM_EPOCHS =20
+NUM_EPOCHS =30
 VAL_EVERY = 1
 IMSIZE=512
 LR = 0.0001
@@ -28,15 +24,15 @@ GAMMA=0.3
 
 
 SAVED_DIR = "/data/ephemeral/home/MCG/UNetRefactored/Creadted_model/"
-MODELNAME="iou_512.pt"
+MODELNAME="best_NewModel.pt"
 if not os.path.isdir(SAVED_DIR):
     os.mkdir(SAVED_DIR)
     
 
 
-INFERENCE_MODEL_NAME="iou_512.pt"
+INFERENCE_MODEL_NAME="best_NewModel.pt"
 
-TEST_IMAGE_ROOT="/data/ephemeral/home/MCG/data/test/DCM"
+TEST_IMAGE_ROOT="../../data/test/DCM"
 
 CSVDIR="/data/ephemeral/home/MCG/UNetRefactored/CSV"
-CSVNAME="iou_512.CSV"
+CSVNAME="New_mmm"

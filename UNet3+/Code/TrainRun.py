@@ -12,7 +12,7 @@ from torch.utils.data import DataLoader
 
 from Model.FixedModel import UNet_3Plus_DeepSup
 from DataSet.DataLoder import get_image_label_paths
-from config import IMAGE_ROOT,LABEL_ROOT,BATCH_SIZE,IMSIZE,CLASSES,MILESTONES, GAMMA,LR
+from config import IMAGE_ROOT,LABEL_ROOT,BATCH_SIZE,IMSIZE,CLASSES,MILESTONES, GAMMA,LR, SAVED_DIR
 from DataSet.Dataset import XRayDataset
 from Loss.Loss import CombinedLoss
 from Train import train
@@ -20,7 +20,8 @@ from Util.SetSeed import set_seed
 
 set_seed()
 
-
+if not os.path.isdir(SAVED_DIR):
+    os.makedirs(SAVED_DIR)
 
 pngs, jsons=get_image_label_paths(IMAGE_ROOT=IMAGE_ROOT,LABEL_ROOT=LABEL_ROOT)
 #print(pngs, jsons)

@@ -4,6 +4,7 @@ from Validation import validation
 import os
 import torch
 from Util.SetSeed import set_seed
+from Util.DiscordAlam import send_discord_message
 
 set_seed()
 
@@ -66,10 +67,11 @@ def train(model, data_loader, val_loader, criterion, optimizer,scheduler):
 
             if best_dice < dice:
                 print(f"Best performance at epoch: {epoch + 1}, {best_dice:.4f} -> {dice:.4f}")
+                send_discord_message(f"성능 모니터링: {epoch + 1}, {best_dice:.4f} -> {dice:.4f}")
                 print(f"Save model in {SAVED_DIR}")
                 best_dice = dice
                 save_model(model)
-
+                
         # 스케줄러 업데이트
         scheduler.step()
         print(f"Epoch {epoch + 1}: Learning Rate -> {scheduler.get_last_lr()}")
@@ -78,3 +80,15 @@ def train(model, data_loader, val_loader, criterion, optimizer,scheduler):
         end_time = datetime.datetime.now()
         print(f"Epoch {epoch + 1} ended at {end_time.strftime('%Y-%m-%d %H:%M:%S')}")
         print(f"Epoch {epoch + 1} duration: {str(end_time - start_time)}")
+
+        epoch_duration = end_time - start_time
+        # 첫 에폭 시간 저장 및 ETA 계산
+        if epoch == 0:
+            first_epoch_time = epoch_duration
+            estimated_total_time = first_epoch_time * NUM_EPOCHS
+            eta = start_time + estimated_total_time
+            send_discord_message(
+                f"첫 번째 에폭의 소요 시간: {str(epoch_duration)}\n"
+                f"전체 학습이 완료될 것으로 예상되는 시간: {eta.strftime('%Y-%m-%d %H:%M:%S')}\n"
+                f"예상되는 총 남은 시간: {str(estimated_total_time)}"
+            )
