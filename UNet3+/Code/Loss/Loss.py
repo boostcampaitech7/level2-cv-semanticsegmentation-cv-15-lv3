@@ -58,7 +58,7 @@ def ssim(img1, img2, window_size=11, window=None, size_average=True, full=False,
 
 def msssim(img1, img2, window_size=11, size_average=True, normalize=False):
     device = img1.device
-    weights = torch.FloatTensor([0.1448, 0.2856, 0.3001, 0.2363, 0.1333]).to(device)
+    weights = torch.FloatTensor([0.0448, 0.2856, 0.3001, 0.2363, 0.1333]).to(device)
     levels = weights.size()[0]
     mssim = []
     mcs = []
@@ -82,8 +82,22 @@ def msssim(img1, img2, window_size=11, size_average=True, normalize=False):
     output = torch.prod(pow1[:-1] * pow2[-1])
     return output
 
-
 class MSSSIM(torch.nn.Module):
+    def __init__(self, window_size=11, size_average=True, channel=3):
+        super(MSSSIM, self).__init__()
+        self.window_size = window_size
+        self.size_average = size_average
+        self.channel = channel
+        self.window = create_window(window_size, channel)
+
+    def forward(self, img1, img2):
+        # Ensure the images are normalized
+        img1 = img1 / img1.max() if img1.max() > 1 else img1
+        img2 = img2 / img2.max() if img2.max() > 1 else img2
+        return msssim(img1, img2, window_size=self.window_size, size_average=self.size_average, normalize=True)
+    
+
+'''class MSSSIM(torch.nn.Module):
     def __init__(self, window_size=11, size_average=True, channel=3):
         super(MSSSIM, self).__init__()
         self.window_size = window_size
@@ -92,19 +106,22 @@ class MSSSIM(torch.nn.Module):
 
     def forward(self, img1, img2):
         return msssim(img1, img2, window_size=self.window_size, size_average=self.size_average, normalize=True)
+'''
+
 
 
 class CombinedLoss(nn.Module):
-    def __init__(self, alpha=0.5, beta=0.3, gamma=0.2, smooth=1e-6):
+    def __init__(self, focal_weight=1, iou_weight=1, ms_ssim_weight=1, dice_weight=1, smooth=1e-6, channel=3):
         """
-        Combined Loss = alpha * Focal Loss + beta * IoU Loss + gamma * MS-SSIM Loss
+        Combined Loss = alpha * Focal Loss + beta * IoU Loss + gamma * MS-SSIM Loss + delta * Dice Loss
         """
         super(CombinedLoss, self).__init__()
-        self.alpha = alpha
-        self.beta = beta
-        self.gamma = gamma
+        self.alpha = focal_weight  # Weight for Focal Loss
+        self.beta = iou_weight    # Weight for IoU Loss
+        self.gamma = ms_ssim_weight  # Weight for MS-SSIM Loss
+        self.delta = dice_weight  # Weight for Dice Loss
         self.smooth = smooth
-        self.ms_ssim = MSSSIM(window_size=11, size_average=True, channel=1)
+        self.ms_ssim = MSSSIM(window_size=7, size_average=True, channel=channel)
 
     def focal_loss(self, logits, targets, alpha=0.8, gamma=2.0):
         probs = torch.sigmoid(logits)
@@ -119,10 +136,25 @@ class CombinedLoss(nn.Module):
         iou_loss = 1 - (intersection + self.smooth) / (union + self.smooth)
         return iou_loss.mean()
 
+    def dice_loss(self, logits, targets):
+        """
+        Dice Loss = 1 - (2 * intersection + smooth) / (sum_probs + sum_targets + smooth)
+        """
+        probs = torch.sigmoid(logits)
+        intersection = (probs * targets).sum(dim=(2, 3))
+        sum_probs = probs.sum(dim=(2, 3))
+        sum_targets = targets.sum(dim=(2, 3))
+        dice = (2 * intersection + self.smooth) / (sum_probs + sum_targets + self.smooth)
+        return 1 - dice.mean()
+
     def forward(self, logits, targets):
+        # Calculate individual losses
         focal = self.focal_loss(logits, targets)
         iou = self.iou_loss(logits, targets)
         ms_ssim_loss = 1 - self.ms_ssim(torch.sigmoid(logits), targets)
+        #dice = self.dice_loss(logits, targets)
 
-        total_loss = self.alpha * focal + self.beta * iou + self.gamma * ms_ssim_loss
+        # Combine losses with respective weights
+        total_loss = self.alpha * focal  + self.gamma * ms_ssim_loss  + self.beta * iou#+ self.delta * dice
         return total_loss
+
