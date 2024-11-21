@@ -1,6 +1,5 @@
 # python native
 import os
-from ultralytics import YOLO
 
 from sklearn.model_selection import GroupKFold
 import albumentations as A
@@ -8,24 +7,18 @@ import albumentations as A
 import torch
 import torch.optim as optim
 from torch.utils.data import DataLoader
-import torch.multiprocessing as mp
 
 from Model.FixedModel import UNet_3Plus_DeepSup
 from DataSet.DataLoder import get_image_label_paths
-from config import IMAGE_ROOT, LABEL_ROOT, BATCH_SIZE, IMSIZE, CLASSES, MILESTONES, GAMMA, LR, SAVED_DIR, YOLO_MODEL_PATH, VISUALIZE_TRAIN_DATA, SAVE_VISUALIZE_TRAIN_DATA_PATH
-from DataSet.YOLO_Crop_Dataset import XRayDataset
+from config import IMAGE_ROOT, LABEL_ROOT, BATCH_SIZE, IMSIZE, CLASSES, MILESTONES, GAMMA, LR, SAVED_DIR, VISUALIZE_TRAIN_DATA, SAVE_VISUALIZE_TRAIN_DATA_PATH
+from DataSet.LabelBaseCropDataset import XRayDataset
 from Loss.Loss import CombinedLoss
 from Train import train
 from Util.SetSeed import set_seed
 
-if __name__ == '__main__':
-    # 멀티프로세싱 시작 방식을 'spawn'으로 설정
-    mp.set_start_method('spawn', force=True)
 
+def main():
     set_seed()
-
-    # Load the YOLO model
-    YoloModel = YOLO(YOLO_MODEL_PATH)
 
     if not os.path.isdir(SAVED_DIR):
         os.makedirs(SAVED_DIR)
@@ -60,8 +53,20 @@ if __name__ == '__main__':
             train_labelnames += list(jsons[y])
 
     # tf = A.Resize(IMSIZE,IMSIZE)
-    train_dataset = XRayDataset(train_filenames, train_labelnames, is_train=True, yolo_model=YoloModel, save_dir=SAVE_VISUALIZE_TRAIN_DATA_PATH, draw_enabled=VISUALIZE_TRAIN_DATA)
-    valid_dataset = XRayDataset(valid_filenames, valid_labelnames, is_train=False, yolo_model=YoloModel, save_dir=None, draw_enabled=False)
+    train_dataset = XRayDataset(
+        train_filenames,
+        train_labelnames,
+        is_train=True,
+        save_dir=SAVE_VISUALIZE_TRAIN_DATA_PATH,
+        draw_enabled=VISUALIZE_TRAIN_DATA,
+    )
+    valid_dataset = XRayDataset(
+        valid_filenames,
+        valid_labelnames,
+        is_train=False,
+        save_dir=None,
+        draw_enabled=False,
+    )
 
     train_loader = DataLoader(
         dataset=train_dataset,
@@ -76,7 +81,7 @@ if __name__ == '__main__':
         batch_size=1,
         shuffle=False,
         num_workers=2,  # 멀티프로세싱 사용
-        drop_last=False
+        drop_last=False,
     )
 
     model = UNet_3Plus_DeepSup(n_classes=len(CLASSES))
@@ -89,3 +94,7 @@ if __name__ == '__main__':
     scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=MILESTONES, gamma=GAMMA)
 
     train(model, train_loader, valid_loader, criterion, optimizer, scheduler)
+
+
+if __name__ == "__main__":
+    main()
