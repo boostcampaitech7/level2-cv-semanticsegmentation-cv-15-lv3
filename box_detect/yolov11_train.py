@@ -5,8 +5,8 @@ model = YOLO("yolo11x.pt")
 
 # Train the model on the COCO8 example dataset for 100 epochs
 results = model.train(
-    data="/data/ephemeral/home/MCG/yolo_dataset_split/data.yaml",
-    epochs=500,
+    data="/data/ephemeral/home/M/yolo_dataset_split/data.yaml",
+    epochs=300,
     imgsz=2048,
     batch=3,
     hsv_h=0.0,         # Hue shift 비활성화
@@ -14,7 +14,7 @@ results = model.train(
     hsv_v=0.1,         # Brightness shift 비활성화
     degrees=0.1,       # 이미지 회전 비활성화
     translate=0.0,     # 이미지 이동 비활성화
-    scale=0.05,   
+    scale=0.05,
     shear=0.1,         # 이미지 비틀기 비활성화
     perspective=0.0,   # 원근 변환 비활성화
     flipud=0.0,        # 상하 뒤집기 비활성화
