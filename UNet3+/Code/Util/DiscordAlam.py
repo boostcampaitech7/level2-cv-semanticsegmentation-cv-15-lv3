@@ -1,5 +1,5 @@
 import requests
-from ..config import WEBHOOK_URL
+from config import WEBHOOK_URL
 
 
 # Discord Webhook URL

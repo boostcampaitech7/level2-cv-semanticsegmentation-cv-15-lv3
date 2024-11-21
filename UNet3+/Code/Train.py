@@ -1,8 +1,9 @@
 import datetime
-from config import CLASSES, NUM_EPOCHS,VAL_EVERY,SAVED_DIR,MODELNAME
+from config import CLASSES, NUM_EPOCHS, VAL_EVERY, SAVED_DIR, MODELNAME
 from Validation import validation
 import os
 import torch
+from torch.cuda.amp import GradScaler, autocast
 from Util.SetSeed import set_seed
 from Util.DiscordAlam import send_discord_message
 
@@ -12,17 +13,18 @@ def save_model(model, file_name=MODELNAME):
     output_path = os.path.join(SAVED_DIR, file_name)
     torch.save(model, output_path)
 
-def train(model, data_loader, val_loader, criterion, optimizer,scheduler):
+def train(model, data_loader, val_loader, criterion, optimizer, scheduler):
     print(f'Start training..')
     model.cuda()
 
     n_class = len(CLASSES)
-    best_dice = 0.
+    best_dice = 0.0
 
     # 손실 가중치 (Deep Supervision)
     deep_sup_weights = [0.45, 0.35, 0.25, 0.2, 0.2]  # 각 출력에 대한 가중치
 
-    # 스케줄러 추가 (선택적)
+    # Mixed Precision Scaler 생성
+    scaler = GradScaler()
 
     for epoch in range(NUM_EPOCHS):
         # 에폭 시작 시간 기록
@@ -35,22 +37,24 @@ def train(model, data_loader, val_loader, criterion, optimizer,scheduler):
             # GPU 연산을 위해 device 할당
             images, masks = images.cuda(), masks.cuda()
 
-            # Inference
-            outputs = model(images)
-
-            # Deep Supervision 처리: 여러 출력을 가정
-            if isinstance(outputs, (tuple, list)):  # 출력이 리스트/튜플 형태인 경우
-                total_loss = 0.0
-                for i, output in enumerate(outputs):
-                    loss = criterion(output, masks)  # 각 출력의 손실 계산
-                    total_loss +=  loss * deep_sup_weights[i]  # 가중치를 곱해 합산
-            else:  # 출력이 단일 텐서인 경우 (예외 처리)
-                total_loss = criterion(outputs, masks)
-
-            # Backpropagation
+            # Inference 및 Mixed Precision 적용
             optimizer.zero_grad()
-            total_loss.backward()
-            optimizer.step()
+            with autocast():  # Mixed Precision 모드
+                outputs = model(images)
+
+                # Deep Supervision 처리: 여러 출력을 가정
+                if isinstance(outputs, (tuple, list)):  # 출력이 리스트/튜플 형태인 경우
+                    total_loss = 0.0
+                    for i, output in enumerate(outputs):
+                        loss = criterion(output, masks)  # 각 출력의 손실 계산
+                        total_loss += loss * deep_sup_weights[i]  # 가중치를 곱해 합산
+                else:  # 출력이 단일 텐서인 경우 (예외 처리)
+                    total_loss = criterion(outputs, masks)
+
+            # Backpropagation with Scaler
+            scaler.scale(total_loss).backward()
+            scaler.step(optimizer)
+            scaler.update()
 
             # Step 주기에 따른 손실 출력
             if (step + 1) % 80 == 0:
@@ -71,7 +75,7 @@ def train(model, data_loader, val_loader, criterion, optimizer,scheduler):
                 print(f"Save model in {SAVED_DIR}")
                 best_dice = dice
                 save_model(model)
-                
+
         # 스케줄러 업데이트
         scheduler.step()
         print(f"Epoch {epoch + 1}: Learning Rate -> {scheduler.get_last_lr()}")

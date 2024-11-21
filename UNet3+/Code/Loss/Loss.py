@@ -96,8 +96,20 @@ class MSSSIM(torch.nn.Module):
         img2 = img2 / img2.max() if img2.max() > 1 else img2
         return msssim(img1, img2, window_size=self.window_size, size_average=self.size_average, normalize=True)
     
-    
-    
+
+'''class MSSSIM(torch.nn.Module):
+    def __init__(self, window_size=11, size_average=True, channel=3):
+        super(MSSSIM, self).__init__()
+        self.window_size = window_size
+        self.size_average = size_average
+        self.channel = channel
+
+    def forward(self, img1, img2):
+        return msssim(img1, img2, window_size=self.window_size, size_average=self.size_average, normalize=True)
+'''
+
+
+
 class CombinedLoss(nn.Module):
     def __init__(self, focal_weight=1, iou_weight=1, ms_ssim_weight=1, dice_weight=1, smooth=1e-6, channel=3):
         """
@@ -109,7 +121,7 @@ class CombinedLoss(nn.Module):
         self.gamma = ms_ssim_weight  # Weight for MS-SSIM Loss
         self.delta = dice_weight  # Weight for Dice Loss
         self.smooth = smooth
-        self.ms_ssim = MSSSIM(window_size=11, size_average=True, channel=channel)
+        self.ms_ssim = MSSSIM(window_size=7, size_average=True, channel=channel)
 
     def focal_loss(self, logits, targets, alpha=0.8, gamma=2.0):
         probs = torch.sigmoid(logits)
