@@ -36,7 +36,7 @@ groups = [os.path.dirname(fname) for fname in pngs]
 ys = [0 for fname in pngs]
 
 # 전체 데이터의 20%를 validation data로 쓰기 위해 `n_splits`를
-# 5으로 설정하여 GroupKFold를 수행합니다.
+# 5으로 설정해 GroupKFold를 수행합니다.
 gkf = GroupKFold(n_splits=5)
 
 train_filenames = []
@@ -53,10 +53,34 @@ for i, (x, y) in enumerate(gkf.split(pngs, ys, groups)):
         train_filenames += list(pngs[y])
         train_labelnames += list(jsons[y])
 
-tf = A.Resize(IMSIZE,IMSIZE)
-train_dataset = XRayDataset(train_filenames, train_labelnames, transforms=tf, is_train=True)
-valid_dataset = XRayDataset(valid_filenames, valid_labelnames, transforms=tf, is_train=False)
+# Define augmentations
+train_transform = A.Compose([
+    # 먼저 모든 이미지를 동일한 크기로 리사이즈
+    A.Resize(int(IMSIZE), int(IMSIZE), always_apply=True),
+    # A.CenterCrop(height=IMSIZE, width=IMSIZE, always_apply=True),
+    A.CLAHE(clip_limit=4.0, tile_grid_size=(8, 8), p=0.3),
+    A.Sharpen(alpha=(0.2, 0.5), lightness=(0.5, 1.0), p=0.5),
+])
 
+# Validation transform
+valid_transform = A.Compose([
+    A.Resize(IMSIZE, IMSIZE, always_apply=True),
+])
+
+# Create datasets with augmentations
+train_dataset = XRayDataset(
+    train_filenames, 
+    train_labelnames, 
+    transforms=train_transform, 
+    is_train=True
+)
+
+valid_dataset = XRayDataset(
+    valid_filenames, 
+    valid_labelnames, 
+    transforms=valid_transform, 
+    is_train=False
+)
 
 train_loader = DataLoader(
     dataset=train_dataset,
