@@ -123,7 +123,7 @@ class CombinedLoss(nn.Module):
         self.smooth = smooth
         self.ms_ssim = MSSSIM(window_size=7, size_average=True, channel=channel)
 
-    def focal_loss(self, logits, targets, alpha=0.8, gamma=2.0):
+    def focal_loss(self, logits, targets, alpha=0.75, gamma=2.3):
         probs = torch.sigmoid(logits)
         focal_loss = -alpha * (1 - probs) ** gamma * targets * torch.log(probs + 1e-6) \
                      - (1 - alpha) * probs ** gamma * (1 - targets) * torch.log(1 - probs + 1e-6)
@@ -155,6 +155,6 @@ class CombinedLoss(nn.Module):
         #dice = self.dice_loss(logits, targets)
 
         # Combine losses with respective weights
-        total_loss = self.alpha * focal  + self.gamma * ms_ssim_loss  + self.beta * iou#+ self.delta * dice
+        total_loss = self.alpha * focal  + self.gamma * ms_ssim_loss  + self.beta * iou #+ self.delta * dice
         return total_loss
 

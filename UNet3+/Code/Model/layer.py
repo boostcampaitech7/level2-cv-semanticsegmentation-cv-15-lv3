@@ -3,6 +3,36 @@ import torch.nn as nn
 import torch.nn.functional as F
 from Util.InitWeights import init_weights
 
+class BottleNeck(nn.Module):
+    def __init__(self, in_channels, mid_channels):
+        super(BottleNeck, self).__init__()
+        self.conv1 = nn.Conv2d(in_channels, mid_channels, kernel_size=1, stride=1, bias=False)
+        self.bn1 = nn.BatchNorm2d(mid_channels)
+        self.conv2 = nn.Conv2d(mid_channels, mid_channels, kernel_size=3, stride=1, padding=1, bias=False)
+        self.bn2 = nn.BatchNorm2d(mid_channels)
+        self.conv3 = nn.Conv2d(mid_channels, in_channels, kernel_size=1, stride=1, bias=False)
+        self.bn3 = nn.BatchNorm2d(in_channels)
+        self.relu = nn.ReLU(inplace=True)
+
+        for m in self.children():
+            init_weights(m, init_type='kaiming')
+
+    def forward(self, x):
+        residual = x
+        out = self.conv1(x)
+        out = self.bn1(out)
+        out = self.relu(out)
+        out = self.conv2(out)
+        out = self.bn2(out)
+        out = self.relu(out)
+        out = self.conv3(out)
+        out = self.bn3(out)
+        out += residual
+        out = self.relu(out)
+        return out
+
+
+
 
 class unetConv2(nn.Module):
     def __init__(self, in_size, out_size, is_batchnorm, n=2, ks=3, stride=1, padding=1):
