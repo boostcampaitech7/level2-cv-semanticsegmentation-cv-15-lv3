@@ -1,5 +1,8 @@
 import os
 
+
+WEBHOOK_URL = 'https://discord.com/api/webhooks/1305343891964428318/G85AIWjdio2VBY7V-egcaI-qJDOOcRAAVrThsUh6yYmKMdKT5Ff4HNkMkk8gWkkCNdWV'
+
 IMAGE_ROOT = "../../data/train/DCM"
 LABEL_ROOT = "../../data/train/outputs_json"
 CLASSES = [
