@@ -138,11 +138,11 @@ class CombinedLoss(nn.Module):
     def forward(self, logits, targets):
         # Calculate individual losses
         focal = self.focal_loss(logits, targets)
-        #iou = self.iou_loss(logits, targets)
+        iou = self.iou_loss(logits, targets)
         ms_ssim_loss = 1 - self.ms_ssim(torch.sigmoid(logits), targets)
-        dice = self.dice_loss(logits, targets)
+        #dice = self.dice_loss(logits, targets)
 
         # Combine losses with respective weights
-        total_loss = self.alpha * focal  + self.gamma * ms_ssim_loss + self.delta * dice #+ self.beta * iou
+        total_loss = self.alpha * focal  + self.gamma * ms_ssim_loss  + self.beta * iou#+ self.delta * dice
         return total_loss
 
