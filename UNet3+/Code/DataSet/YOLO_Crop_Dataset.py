@@ -11,12 +11,15 @@ set_seed()
 from torch.utils.data import Dataset
 
 class XRayDataset(Dataset):
-    def __init__(self, filenames, labelnames, transforms=None, is_train=False, yolo_model=None):
+    def __init__(self, filenames, labelnames, transforms=None,
+                 is_train=False, yolo_model=None, save_dir=None, draw_enabled=False):
         self.filenames = filenames
         self.labelnames = labelnames
         self.is_train = is_train
         self.transforms = transforms
         self.yolo_model = yolo_model  # YOLO 모델 추가
+        self.save_dir = save_dir  # Crop된 이미지 저장 디렉토리
+        self.draw_enabled = draw_enabled  # 라벨 그리기 기능 활성화 여부
 
     def __len__(self):
         return len(self.filenames)
@@ -83,13 +86,19 @@ class XRayDataset(Dataset):
             image = result["image"]
             label = result["mask"] if self.is_train else label
 
+        if self.draw_enabled and self.save_dir:
+            os.makedirs(self.save_dir, exist_ok=True)
+            save_path = os.path.join(self.save_dir, f"cropped_{os.path.basename(self.filenames[item])}")
+            draw_and_save_crop(image, label, save_path)
+        
         # Convert to tensor
         image = image.transpose(2, 0, 1)  # Channel first
         label = label.transpose(2, 0, 1)
 
         image = torch.from_numpy(image).float()
         label = torch.from_numpy(label).float()
-
+        
+        
         return image, label
 
     def calculate_crop_box_from_yolo(self, yolo_box, image_size, crop_size=IMSIZE):
@@ -116,3 +125,36 @@ class XRayDataset(Dataset):
         """Crop the label tensor to match the cropped image."""
         start_x, start_y, end_x, end_y = crop_box
         return label[start_y:end_y, start_x:end_x, :]
+
+
+
+import cv2
+import numpy as np
+
+def draw_and_save_crop(image, label, save_path):
+    """
+    Crop된 이미지 위에 라벨 정보를 그려 저장합니다.
+
+    Args:
+        image (np.ndarray): Crop된 이미지 (H, W, C).
+        label (np.ndarray): Crop된 라벨 (H, W, num_classes).
+        save_path (str): 저장할 파일 경로.
+    """
+    # 이미지 복사
+    image_to_draw = (image * 255).astype(np.uint8).copy()  # 이미지 복원 (0~255)
+
+    # 클래스별 색상 설정
+    num_classes = label.shape[-1]
+    colors = [(0, 255, 0), (255, 0, 0), (0, 0, 255), (255, 255, 0), (0, 255, 255)]  # 클래스별 색상
+
+    # 클래스별로 라벨을 이미지에 그리기
+    for class_idx in range(num_classes):
+        mask = label[..., class_idx].astype(np.uint8)
+        contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+        # 컨투어 그리기
+        for contour in contours:
+            cv2.drawContours(image_to_draw, [contour], -1, colors[class_idx % len(colors)], 2)
+
+    # 저장
+    cv2.imwrite(save_path, image_to_draw)

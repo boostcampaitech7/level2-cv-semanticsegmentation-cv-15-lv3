@@ -12,7 +12,7 @@ import torch.multiprocessing as mp
 
 from Model.FixedModel import UNet_3Plus_DeepSup
 from DataSet.DataLoder import get_image_label_paths
-from config import IMAGE_ROOT, LABEL_ROOT, BATCH_SIZE, IMSIZE, CLASSES, MILESTONES, GAMMA, LR, SAVED_DIR, YOLO_MODEL_PATH
+from config import IMAGE_ROOT, LABEL_ROOT, BATCH_SIZE, IMSIZE, CLASSES, MILESTONES, GAMMA, LR, SAVED_DIR, YOLO_MODEL_PATH, VISUALIZE_TRAIN_DATA, SAVE_VISUALIZE_TRAIN_DATA_PATH
 from DataSet.YOLO_Crop_Dataset import XRayDataset
 from Loss.Loss import CombinedLoss
 from Train import train
@@ -60,8 +60,8 @@ if __name__ == '__main__':
             train_labelnames += list(jsons[y])
 
     # tf = A.Resize(IMSIZE,IMSIZE)
-    train_dataset = XRayDataset(train_filenames, train_labelnames, is_train=True, yolo_model=YoloModel)
-    valid_dataset = XRayDataset(valid_filenames, valid_labelnames, is_train=False, yolo_model=YoloModel)
+    train_dataset = XRayDataset(train_filenames, train_labelnames, is_train=True, yolo_model=YoloModel, save_dir=SAVE_VISUALIZE_TRAIN_DATA_PATH, draw_enabled=VISUALIZE_TRAIN_DATA)
+    valid_dataset = XRayDataset(valid_filenames, valid_labelnames, is_train=False, yolo_model=YoloModel, save_dir=None, draw_enabled=False)
 
     train_loader = DataLoader(
         dataset=train_dataset,

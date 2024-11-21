@@ -5,6 +5,8 @@ WEBHOOK_URL = 'https://discord.com/api/webhooks/1306529597055041562/DUG0omhuBla0
 
 
 YOLO_MODEL_PATH="/data/ephemeral/home/MCG/YOLO_Detection_Model/best.pt"
+SAVE_VISUALIZE_TRAIN_DATA_PATH="/data/ephemeral/home/MCG/YOLO_Detection_Model/crop_train_Image"
+VISUALIZE_TRAIN_DATA=True
 
 IMAGE_ROOT = "/data/ephemeral/home/MCG/data/train/DCM"
 LABEL_ROOT = "/data/ephemeral/home/MCG/data/train/outputs_json"
@@ -37,7 +39,7 @@ YOLO_SELECT_CLASS="others"
 RANDOM_SEED = 21
 
 # 적절하게 조절
-NUM_EPOCHS =30
+NUM_EPOCHS =20
 VAL_EVERY = 1
 
 BATCH_SIZE = 1
