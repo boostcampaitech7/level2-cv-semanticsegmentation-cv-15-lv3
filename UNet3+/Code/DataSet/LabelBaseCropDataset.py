@@ -116,6 +116,7 @@ class XRayDataset(Dataset):
         return label[start_y:end_y, start_x:end_x, :]
 
 
+import os
 import cv2
 import numpy as np
 
@@ -128,12 +129,24 @@ def draw_and_save_crop(image, label, save_path):
         label (np.ndarray): Crop된 라벨 (H, W, num_classes).
         save_path (str): 저장할 파일 경로.
     """
+    # 디렉토리 생성 (필요하면)
+    os.makedirs(os.path.dirname(save_path), exist_ok=True)
+
     # 이미지 복사
     image_to_draw = (image * 255).astype(np.uint8).copy()  # 이미지 복원 (0~255)
 
     # 클래스별 색상 설정
     num_classes = label.shape[-1]
-    colors = [(0, 255, 0), (255, 0, 0), (0, 0, 255), (255, 255, 0), (0, 255, 255)]  # 클래스별 색상
+    colors = [
+        (0, 255, 0),    # 초록
+        (255, 0, 0),    # 빨강
+        (0, 0, 255),    # 파랑
+        (255, 255, 0),  # 노랑
+        (0, 255, 255),  # 시안
+        (255, 0, 255),  # 마젠타
+        (128, 0, 128),  # 보라
+        (255, 165, 0)   # 오렌지
+    ]  # 클래스별 색상
 
     # 클래스별로 라벨을 이미지에 그리기
     for class_idx in range(num_classes):
