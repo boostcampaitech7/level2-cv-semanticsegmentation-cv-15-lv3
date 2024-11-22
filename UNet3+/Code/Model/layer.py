@@ -3,6 +3,57 @@ import torch.nn as nn
 import torch.nn.functional as F
 from Util.InitWeights import init_weights
 
+class BottleNeck(nn.Module):
+    def __init__(self, in_channels, mid_channels):
+        super(BottleNeck, self).__init__()
+        self.conv1 = nn.Conv2d(in_channels, mid_channels, kernel_size=1, stride=1, bias=False)
+        self.bn1 = nn.BatchNorm2d(mid_channels)
+        self.conv2 = nn.Conv2d(mid_channels, mid_channels, kernel_size=3, stride=1, padding=1, bias=False)
+        self.bn2 = nn.BatchNorm2d(mid_channels)
+        self.conv3 = nn.Conv2d(mid_channels, in_channels, kernel_size=1, stride=1, bias=False)
+        self.bn3 = nn.BatchNorm2d(in_channels)
+        self.relu = nn.ReLU(inplace=True)
+
+        for m in self.children():
+            init_weights(m, init_type='kaiming')
+
+    def forward(self, x):
+        residual = x
+        out = self.conv1(x)
+        out = self.bn1(out)
+        out = self.relu(out)
+        out = self.conv2(out)
+        out = self.bn2(out)
+        out = self.relu(out)
+        out = self.conv3(out)
+        out = self.bn3(out)
+        out += residual
+        out = self.relu(out)
+        return out
+
+class CBAM(nn.Module):
+    def __init__(self, channels, reduction=16):
+        super(CBAM, self).__init__()
+        self.channel_attention = nn.Sequential(
+            nn.AdaptiveAvgPool2d(1),
+            nn.Conv2d(channels, channels // reduction, 1, bias=False),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(channels // reduction, channels, 1, bias=False),
+            nn.Sigmoid()
+        )
+        self.spatial_attention = nn.Sequential(
+            nn.Conv2d(2, 1, kernel_size=7, padding=3, bias=False),
+            nn.Sigmoid()
+        )
+
+    def forward(self, x):
+        # Channel Attention
+        ca = self.channel_attention(x) * x
+        # Spatial Attention
+        sa_input = torch.cat([ca.mean(dim=1, keepdim=True), ca.max(dim=1, keepdim=True)[0]], dim=1)
+        sa = self.spatial_attention(sa_input)
+        return sa * ca
+
 
 class unetConv2(nn.Module):
     def __init__(self, in_size, out_size, is_batchnorm, n=2, ks=3, stride=1, padding=1):

@@ -9,6 +9,7 @@ CLASSES = [
     'Trapezoid', 'Capitate', 'Hamate', 'Scaphoid', 'Lunate',
     'Triquetrum', 'Pisiform', 
 ]
+
 CLASS2IND = {v: i for i, v in enumerate(CLASSES)}
 IND2CLASS = {v: k for k, v in CLASS2IND.items()}
 
@@ -28,7 +29,7 @@ MODELNAME="best_CenterCrop_1024_aug.pt"
     
 INFERENCE_MODEL_NAME="best_CenterCrop.pt"
 
-TEST_IMAGE_ROOT="../../data/test/DCM"
+TEST_IMAGE_ROOT="/data/ephemeral/home/MCG/data/test/DCM"
 
 CSVDIR="./CSV"
 CSVNAME="best_NewModel"
