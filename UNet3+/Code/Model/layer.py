@@ -31,7 +31,28 @@ class BottleNeck(nn.Module):
         out = self.relu(out)
         return out
 
+class CBAM(nn.Module):
+    def __init__(self, channels, reduction=16):
+        super(CBAM, self).__init__()
+        self.channel_attention = nn.Sequential(
+            nn.AdaptiveAvgPool2d(1),
+            nn.Conv2d(channels, channels // reduction, 1, bias=False),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(channels // reduction, channels, 1, bias=False),
+            nn.Sigmoid()
+        )
+        self.spatial_attention = nn.Sequential(
+            nn.Conv2d(2, 1, kernel_size=7, padding=3, bias=False),
+            nn.Sigmoid()
+        )
 
+    def forward(self, x):
+        # Channel Attention
+        ca = self.channel_attention(x) * x
+        # Spatial Attention
+        sa_input = torch.cat([ca.mean(dim=1, keepdim=True), ca.max(dim=1, keepdim=True)[0]], dim=1)
+        sa = self.spatial_attention(sa_input)
+        return sa * ca
 
 
 class unetConv2(nn.Module):

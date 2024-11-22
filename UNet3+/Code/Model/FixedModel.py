@@ -8,6 +8,7 @@ from Util.InitWeights import init_weights
 from Util.SetSeed import set_seed
 from .layer import unetConv2, BottleNeck
 import torchvision.models as models
+
 set_seed()
 
 class UNet_3Plus_DeepSup(nn.Module):
@@ -24,23 +25,22 @@ class UNet_3Plus_DeepSup(nn.Module):
         ## -------------Encoder--------------
         self.conv1 = nn.Sequential(
             unetConv2(self.in_channels, filters[0], self.is_batchnorm),
-            #nn.MaxPool2d(kernel_size=2),
-            BottleNeck(64, 128)  # BottleNeck 추가
+            nn.Dropout(p=0.05),
+            BottleNeck(filters[0], filters[0] // 2)
         )
-
         self.conv2 = nn.Sequential(
             nn.MaxPool2d(kernel_size=2),
             unetConv2(filters[0], filters[1], self.is_batchnorm),
-            BottleNeck(128, 256)  # BottleNeck 추가
+            nn.Dropout(p=0.1),
+            BottleNeck(filters[1], filters[1] // 2)
         )
-
         self.conv3 = nn.Sequential(
             nn.MaxPool2d(kernel_size=2),
             unetConv2(filters[1], filters[2], self.is_batchnorm),
-            BottleNeck(256, 512)  # BottleNeck 추가
+            nn.Dropout(p=0.15),
+            BottleNeck(filters[2], filters[2] // 2)
         )
         self.conv4 = self.resnet.layer2
-
         self.conv5 = self.resnet.layer3
         ## -------------Decoder--------------
         self.CatChannels = filters[0]
@@ -71,9 +71,14 @@ class UNet_3Plus_DeepSup(nn.Module):
         self.h4_Cat_hd4_bn = nn.BatchNorm2d(self.CatChannels)
         self.h4_Cat_hd4_relu = nn.ReLU(inplace=True)
 
-        # hd5->20*20, hd4->40*40, Upsample 2 times
-        self.hd5_UT_hd4 = nn.Upsample(scale_factor=2, mode='bilinear')  # 14*14
-        self.hd5_UT_hd4_conv = nn.Conv2d(filters[4], self.CatChannels, 3, padding=1)
+        # hd5->20*20, hd4->40*40, Upsample 2 times (Using ConvTranspose2d)
+        self.hd5_UT_hd4 = nn.ConvTranspose2d(
+            in_channels=filters[4],       # 입력 채널
+            out_channels=self.CatChannels,  # 출력 채널
+            kernel_size=2,  # 업샘플링 크기
+            stride=2        # 2배 업샘플링
+        )
+        self.hd5_UT_hd4_conv = nn.Conv2d(self.CatChannels, self.CatChannels, 3, padding=1)
         self.hd5_UT_hd4_bn = nn.BatchNorm2d(self.CatChannels)
         self.hd5_UT_hd4_relu = nn.ReLU(inplace=True)
 
@@ -81,6 +86,7 @@ class UNet_3Plus_DeepSup(nn.Module):
         self.conv4d_1 = nn.Conv2d(self.UpChannels, self.UpChannels, 3, padding=1)  # 16
         self.bn4d_1 = nn.BatchNorm2d(self.UpChannels)
         self.relu4d_1 = nn.ReLU(inplace=True)
+
 
         '''stage 3d'''
         # h1->320*320, hd3->80*80, Pooling 4 times
@@ -100,15 +106,25 @@ class UNet_3Plus_DeepSup(nn.Module):
         self.h3_Cat_hd3_bn = nn.BatchNorm2d(self.CatChannels)
         self.h3_Cat_hd3_relu = nn.ReLU(inplace=True)
 
-        # hd4->40*40, hd4->80*80, Upsample 2 times
-        self.hd4_UT_hd3 = nn.Upsample(scale_factor=2, mode='bilinear')  # 14*14
-        self.hd4_UT_hd3_conv = nn.Conv2d(self.UpChannels, self.CatChannels, 3, padding=1)
+        # hd4->40*40, hd4->80*80, Upsample 2 times (Using ConvTranspose2d)
+        self.hd4_UT_hd3 = nn.ConvTranspose2d(
+            in_channels=self.UpChannels,  # 입력 채널
+            out_channels=self.CatChannels,  # 출력 채널
+            kernel_size=2,  # 업샘플링 크기
+            stride=2        # 2배 업샘플링
+        )
+        self.hd4_UT_hd3_conv = nn.Conv2d(self.CatChannels, self.CatChannels, 3, padding=1)
         self.hd4_UT_hd3_bn = nn.BatchNorm2d(self.CatChannels)
         self.hd4_UT_hd3_relu = nn.ReLU(inplace=True)
 
-        # hd5->20*20, hd4->80*80, Upsample 4 times
-        self.hd5_UT_hd3 = nn.Upsample(scale_factor=4, mode='bilinear')  # 14*14
-        self.hd5_UT_hd3_conv = nn.Conv2d(filters[4], self.CatChannels, 3, padding=1)
+        # hd5->20*20, hd4->80*80, Upsample 4 times (Using ConvTranspose2d)
+        self.hd5_UT_hd3 = nn.ConvTranspose2d(
+            in_channels=filters[4],       # 입력 채널
+            out_channels=self.CatChannels,  # 출력 채널
+            kernel_size=4,  # 업샘플링 크기
+            stride=4        # 4배 업샘플링
+        )
+        self.hd5_UT_hd3_conv = nn.Conv2d(self.CatChannels, self.CatChannels, 3, padding=1)
         self.hd5_UT_hd3_bn = nn.BatchNorm2d(self.CatChannels)
         self.hd5_UT_hd3_relu = nn.ReLU(inplace=True)
 
@@ -116,6 +132,7 @@ class UNet_3Plus_DeepSup(nn.Module):
         self.conv3d_1 = nn.Conv2d(self.UpChannels, self.UpChannels, 3, padding=1)  # 16
         self.bn3d_1 = nn.BatchNorm2d(self.UpChannels)
         self.relu3d_1 = nn.ReLU(inplace=True)
+
 
         '''stage 2d '''
         # h1->320*320, hd2->160*160, Pooling 2 times
@@ -129,21 +146,36 @@ class UNet_3Plus_DeepSup(nn.Module):
         self.h2_Cat_hd2_bn = nn.BatchNorm2d(self.CatChannels)
         self.h2_Cat_hd2_relu = nn.ReLU(inplace=True)
 
-        # hd3->80*80, hd2->160*160, Upsample 2 times
-        self.hd3_UT_hd2 = nn.Upsample(scale_factor=2, mode='bilinear')  # 14*14
-        self.hd3_UT_hd2_conv = nn.Conv2d(self.UpChannels, self.CatChannels, 3, padding=1)
+        # hd3->80*80, hd2->160*160, Upsample 2 times (Using ConvTranspose2d)
+        self.hd3_UT_hd2 = nn.ConvTranspose2d(
+            in_channels=self.UpChannels,  # 입력 채널
+            out_channels=self.CatChannels,  # 출력 채널
+            kernel_size=2,  # 업샘플링 크기
+            stride=2        # 2배 업샘플링
+        )
+        self.hd3_UT_hd2_conv = nn.Conv2d(self.CatChannels, self.CatChannels, 3, padding=1)
         self.hd3_UT_hd2_bn = nn.BatchNorm2d(self.CatChannels)
         self.hd3_UT_hd2_relu = nn.ReLU(inplace=True)
 
-        # hd4->40*40, hd2->160*160, Upsample 4 times
-        self.hd4_UT_hd2 = nn.Upsample(scale_factor=4, mode='bilinear')  # 14*14
-        self.hd4_UT_hd2_conv = nn.Conv2d(self.UpChannels, self.CatChannels, 3, padding=1)
+        # hd4->40*40, hd2->160*160, Upsample 4 times (Using ConvTranspose2d)
+        self.hd4_UT_hd2 = nn.ConvTranspose2d(
+            in_channels=self.UpChannels,  # 입력 채널
+            out_channels=self.CatChannels,  # 출력 채널
+            kernel_size=4,  # 업샘플링 크기
+            stride=4        # 4배 업샘플링
+        )
+        self.hd4_UT_hd2_conv = nn.Conv2d(self.CatChannels, self.CatChannels, 3, padding=1)
         self.hd4_UT_hd2_bn = nn.BatchNorm2d(self.CatChannels)
         self.hd4_UT_hd2_relu = nn.ReLU(inplace=True)
 
-        # hd5->20*20, hd2->160*160, Upsample 8 times
-        self.hd5_UT_hd2 = nn.Upsample(scale_factor=8, mode='bilinear')  # 14*14
-        self.hd5_UT_hd2_conv = nn.Conv2d(filters[4], self.CatChannels, 3, padding=1)
+        # hd5->20*20, hd2->160*160, Upsample 8 times (Using ConvTranspose2d)
+        self.hd5_UT_hd2 = nn.ConvTranspose2d(
+            in_channels=filters[4],       # 입력 채널
+            out_channels=self.CatChannels,  # 출력 채널
+            kernel_size=8,  # 업샘플링 크기
+            stride=8        # 8배 업샘플링
+        )
+        self.hd5_UT_hd2_conv = nn.Conv2d(self.CatChannels, self.CatChannels, 3, padding=1)
         self.hd5_UT_hd2_bn = nn.BatchNorm2d(self.CatChannels)
         self.hd5_UT_hd2_relu = nn.ReLU(inplace=True)
 
@@ -152,33 +184,54 @@ class UNet_3Plus_DeepSup(nn.Module):
         self.bn2d_1 = nn.BatchNorm2d(self.UpChannels)
         self.relu2d_1 = nn.ReLU(inplace=True)
 
+
         '''stage 1d'''
         # h1->320*320, hd1->320*320, Concatenation
         self.h1_Cat_hd1_conv = nn.Conv2d(filters[0], self.CatChannels, 3, padding=1)
         self.h1_Cat_hd1_bn = nn.BatchNorm2d(self.CatChannels)
         self.h1_Cat_hd1_relu = nn.ReLU(inplace=True)
 
-        # hd2->160*160, hd1->320*320, Upsample 2 times
-        self.hd2_UT_hd1 = nn.Upsample(scale_factor=2, mode='bilinear')  # 14*14
-        self.hd2_UT_hd1_conv = nn.Conv2d(self.UpChannels, self.CatChannels, 3, padding=1)
+        # hd2->160*160, hd1->320*320, Upsample 2 times (Using ConvTranspose2d)
+        self.hd2_UT_hd1 = nn.ConvTranspose2d(
+            in_channels=self.UpChannels,  # 입력 채널
+            out_channels=self.CatChannels,  # 출력 채널
+            kernel_size=2,  # 업샘플링 크기
+            stride=2        # 2배 업샘플링
+        )
+        self.hd2_UT_hd1_conv = nn.Conv2d(self.CatChannels, self.CatChannels, 3, padding=1)
         self.hd2_UT_hd1_bn = nn.BatchNorm2d(self.CatChannels)
         self.hd2_UT_hd1_relu = nn.ReLU(inplace=True)
 
-        # hd3->80*80, hd1->320*320, Upsample 4 times
-        self.hd3_UT_hd1 = nn.Upsample(scale_factor=4, mode='bilinear')  # 14*14
-        self.hd3_UT_hd1_conv = nn.Conv2d(self.UpChannels, self.CatChannels, 3, padding=1)
+        # hd3->80*80, hd1->320*320, Upsample 4 times (Using ConvTranspose2d)
+        self.hd3_UT_hd1 = nn.ConvTranspose2d(
+            in_channels=self.UpChannels,  # 입력 채널
+            out_channels=self.CatChannels,  # 출력 채널
+            kernel_size=4,  # 업샘플링 크기
+            stride=4        # 4배 업샘플링
+        )
+        self.hd3_UT_hd1_conv = nn.Conv2d(self.CatChannels, self.CatChannels, 3, padding=1)
         self.hd3_UT_hd1_bn = nn.BatchNorm2d(self.CatChannels)
         self.hd3_UT_hd1_relu = nn.ReLU(inplace=True)
 
-        # hd4->40*40, hd1->320*320, Upsample 8 times
-        self.hd4_UT_hd1 = nn.Upsample(scale_factor=8, mode='bilinear')  # 14*14
-        self.hd4_UT_hd1_conv = nn.Conv2d(self.UpChannels, self.CatChannels, 3, padding=1)
+        # hd4->40*40, hd1->320*320, Upsample 8 times (Using ConvTranspose2d)
+        self.hd4_UT_hd1 = nn.ConvTranspose2d(
+            in_channels=self.UpChannels,  # 입력 채널
+            out_channels=self.CatChannels,  # 출력 채널
+            kernel_size=8,  # 업샘플링 크기
+            stride=8        # 8배 업샘플링
+        )
+        self.hd4_UT_hd1_conv = nn.Conv2d(self.CatChannels, self.CatChannels, 3, padding=1)
         self.hd4_UT_hd1_bn = nn.BatchNorm2d(self.CatChannels)
         self.hd4_UT_hd1_relu = nn.ReLU(inplace=True)
 
-        # hd5->20*20, hd1->320*320, Upsample 16 times
-        self.hd5_UT_hd1 = nn.Upsample(scale_factor=16, mode='bilinear')  # 14*14
-        self.hd5_UT_hd1_conv = nn.Conv2d(filters[4], self.CatChannels, 3, padding=1)
+        # hd5->20*20, hd1->320*320, Upsample 16 times (Using ConvTranspose2d)
+        self.hd5_UT_hd1 = nn.ConvTranspose2d(
+            in_channels=filters[4],       # 입력 채널
+            out_channels=self.CatChannels,  # 출력 채널
+            kernel_size=16,  # 업샘플링 크기
+            stride=16        # 16배 업샘플링
+        )
+        self.hd5_UT_hd1_conv = nn.Conv2d(self.CatChannels, self.CatChannels, 3, padding=1)
         self.hd5_UT_hd1_bn = nn.BatchNorm2d(self.CatChannels)
         self.hd5_UT_hd1_relu = nn.ReLU(inplace=True)
 
@@ -187,12 +240,48 @@ class UNet_3Plus_DeepSup(nn.Module):
         self.bn1d_1 = nn.BatchNorm2d(self.UpChannels)
         self.relu1d_1 = nn.ReLU(inplace=True)
 
+
         # -------------Bilinear Upsampling--------------
-        self.upscore6 = nn.Upsample(scale_factor=32,mode='bilinear')###
-        self.upscore5 = nn.Upsample(scale_factor=16,mode='bilinear')
-        self.upscore4 = nn.Upsample(scale_factor=8,mode='bilinear')
-        self.upscore3 = nn.Upsample(scale_factor=4,mode='bilinear')
-        self.upscore2 = nn.Upsample(scale_factor=2, mode='bilinear')
+        # -------------Learnable Upsampling using ConvTranspose2d--------------
+        self.upscore6 = nn.ConvTranspose2d(
+            in_channels=n_classes,   # 입력 채널 수
+            out_channels=n_classes,  # 출력 채널 수 (Segmentation 결과 채널 유지)
+            kernel_size=64,          # 업샘플링 커널 크기
+            stride=32,               # 32배 업샘플링
+            padding=16               # 출력 크기를 동일하게 맞추기 위한 패딩
+        )
+
+        self.upscore5 = nn.ConvTranspose2d(
+            in_channels=n_classes,
+            out_channels=n_classes,
+            kernel_size=32,
+            stride=16,
+            padding=8
+        )
+
+        self.upscore4 = nn.ConvTranspose2d(
+            in_channels=n_classes,
+            out_channels=n_classes,
+            kernel_size=16,
+            stride=8,
+            padding=4
+        )
+
+        self.upscore3 = nn.ConvTranspose2d(
+            in_channels=n_classes,
+            out_channels=n_classes,
+            kernel_size=8,
+            stride=4,
+            padding=2
+        )
+
+        self.upscore2 = nn.ConvTranspose2d(
+            in_channels=n_classes,
+            out_channels=n_classes,
+            kernel_size=4,
+            stride=2,
+            padding=1
+        )
 
         # DeepSup
         self.outconv1 = nn.Conv2d(self.UpChannels, n_classes, 3, padding=1)
@@ -200,6 +289,7 @@ class UNet_3Plus_DeepSup(nn.Module):
         self.outconv3 = nn.Conv2d(self.UpChannels, n_classes, 3, padding=1)
         self.outconv4 = nn.Conv2d(self.UpChannels, n_classes, 3, padding=1)
         self.outconv5 = nn.Conv2d(filters[4], n_classes, 3, padding=1)
+        
         self.cls = nn.Sequential(
             nn.Dropout(p=0.2),               # Dropout으로 오버피팅 방지
             nn.Conv2d(filters[4], n_classes, 1),  # 클래스 수 반영
@@ -211,6 +301,8 @@ class UNet_3Plus_DeepSup(nn.Module):
             if isinstance(m, nn.Conv2d):
                 init_weights(m, init_type='kaiming')
             elif isinstance(m, nn.BatchNorm2d):
+                init_weights(m, init_type='kaiming')
+            elif isinstance(m, nn.ConvTranspose2d):
                 init_weights(m, init_type='kaiming')
 
     
@@ -286,15 +378,16 @@ class UNet_3Plus_DeepSup(nn.Module):
         d2 = self.upscore2(d2) # 128->256
 
         d1 = self.outconv1(hd1) # 256
-        
+        '''
         d1 = self.dotProduct(d1, cls_branch_mask)
         d2 = self.dotProduct(d2, cls_branch_mask)
         d3 = self.dotProduct(d3, cls_branch_mask)
         d4 = self.dotProduct(d4, cls_branch_mask)
         d5 = self.dotProduct(d5, cls_branch_mask)
         
-        
+        '''
         if self.training:
             return d1, d2, d3, d4, d5
         else:
+            #print(d1)
             return d1
