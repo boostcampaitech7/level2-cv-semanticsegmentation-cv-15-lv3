@@ -142,9 +142,9 @@ def main(args):
         if args.save_gt:
             pred_df, gt_df = validation(model, valid_loader, device, args.threshold, save_gt=True)
             model_name = args.model_path.split('/')[-1]
-            pred_df.to_csv(f"{model_name.split('.')[0]}_pred.csv", index=False)
+            pred_df.to_csv(f"{model_name.split('.')[0]}_val.csv", index=False)
             gt_df.to_csv("val_gt.csv", index=False)
-            print(f"\nPrediction results saved to {model_name.split('.')[0]}_pred.csv")
+            print(f"\nPrediction results saved to {model_name.split('.')[0]}_val.csv")
             print(f"Ground truth results saved to val_gt.csv")
         else:
             pred_df = validation(model, valid_loader, device, args.threshold)
