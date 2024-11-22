@@ -9,9 +9,14 @@ from Util.SetSeed import set_seed
 
 set_seed()
 
+import torch
+import torch.nn as nn
+import torchvision.models as models
+
 class ResNetEncoder(nn.Module):
     def __init__(self, in_channels=3, pretrained=True):
         super(ResNetEncoder, self).__init__()
+        # torchvision model 사용
         resnet = models.resnet101(weights=models.ResNet101_Weights.DEFAULT if pretrained else None)
         
         # 입력 채널 변경
@@ -32,7 +37,7 @@ class ResNetEncoder(nn.Module):
 
     def forward(self, x):
         h1 = self.relu(self.bn1(self.input_conv(x)))  # h1: 64 channels
-        h2 = self.layer1(h1)                        # h2: 256 channels
+        h2 = self.layer1(self.maxpool(h1))           # h2: 256 channels
         h3 = self.layer2(h2)                         # h3: 512 channels
         h4 = self.layer3(h3)                         # h4: 1024 channels
         h5 = self.layer4(h4)                         # h5: 2048 channels
@@ -47,7 +52,7 @@ class UNet_3Plus_DeepSup(nn.Module):
         self.is_batchnorm = is_batchnorm
         self.feature_scale = feature_scale
 
-        filters = [64, 256, 512, 1024, 2048] #백본 Output이랑 맞춰서 지정
+        filters = [64, 256, 512, 1024, 2048]
 
         ## -------------Encoder--------------
         self.encoder = ResNetEncoder(in_channels=in_channels)
@@ -276,5 +281,3 @@ class UNet_3Plus_DeepSup(nn.Module):
             return d1, d2, d3, d4, d5
         else:
             return d1
-        
-        
