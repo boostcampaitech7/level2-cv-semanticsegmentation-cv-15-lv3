@@ -8,40 +8,41 @@ from Util.InitWeights import init_weights
 from Util.SetSeed import set_seed
 from .layer import unetConv2, BottleNeck
 import torchvision.models as models
+from torchvision.models import convnext_large
 
 set_seed()
 
 class UNet_3Plus_DeepSup(nn.Module):
-    def __init__(self, in_channels=3, n_classes=1, feature_scale=4, is_deconv=True, is_batchnorm=True,pretrained=True):
+    def __init__(self, in_channels=3, n_classes=1, feature_scale=4, is_deconv=True, is_batchnorm=True, pretrained=True):
         super(UNet_3Plus_DeepSup, self).__init__()
         self.is_deconv = is_deconv
         self.in_channels = in_channels
         self.is_batchnorm = is_batchnorm
         self.feature_scale = feature_scale
-        self.resnet = models.resnet101(weights=models.ResNet101_Weights.DEFAULT if pretrained else None)
-        
-        filters = [64, 128, 256, 512, 1024]
+
+        filters = [192, 384, 768, 1536, 1536]
+
+        # ConvNeXt Large Encoder
+        self.convnext = convnext_large(pretrained=pretrained).features
 
         ## -------------Encoder--------------
         self.conv1 = nn.Sequential(
             unetConv2(self.in_channels, filters[0], self.is_batchnorm),
             nn.Dropout(p=0.05),
-            BottleNeck(filters[0], filters[0] // 2)
+            BottleNeck(filters[0], filters[1]),
         )
-        self.conv2 = nn.Sequential(
-            nn.MaxPool2d(kernel_size=2),
-            unetConv2(filters[0], filters[1], self.is_batchnorm),
-            nn.Dropout(p=0.1),
-            BottleNeck(filters[1], filters[1] // 2)
-        )
-        self.conv3 = nn.Sequential(
-            nn.MaxPool2d(kernel_size=2),
-            unetConv2(filters[1], filters[2], self.is_batchnorm),
-            nn.Dropout(p=0.15),
-            BottleNeck(filters[2], filters[2] // 2)
-        )
-        self.conv4 = self.resnet.layer2
-        self.conv5 = self.resnet.layer3
+        self.conv2 = self.convnext[1:3]
+
+        # Replace conv3, conv4, and conv5 with ConvNeXt Stages
+        self.conv3 = self.convnext[3:5]  # ConvNeXt Stage 2 (Output: 28x28, 384 channels)
+        self.conv4 = self.convnext[5:7]
+        self.conv5 = nn.Sequential(
+            nn.Conv2d(filters[4], filters[4], kernel_size=3, stride=2, padding=1),  # DownSample
+            nn.BatchNorm2d(filters[4]),
+            nn.GELU(),  # GELU activation function
+            self.convnext[7:])   # ConvNeXt Stage 4 (Output: 7x7, 1536 channels)
+
+
         ## -------------Decoder--------------
         self.CatChannels = filters[0]
         self.CatBlocks = 5
@@ -315,16 +316,23 @@ class UNet_3Plus_DeepSup(nn.Module):
     
     def forward(self, inputs):
         ## -------------Encoder-------------
+        #print(f"inputs shape: {inputs.shape}")
         h1 = self.conv1(inputs)  # h1->320*320*64
+        #print(f"h1 shape: {h1.shape}")
 
-        #h2 = self.maxpool1(h1)
+        # h2 = self.maxpool1(h1)
         h2 = self.conv2(h1)  # h2->160*160*128
+        #print(f"h2 shape: {h2.shape}")
 
-        #h3 = self.maxpool2(h2)
+        # h3 = self.maxpool2(h2)
         h3 = self.conv3(h2)  # h3->80*80*256
+        #print(f"h3 shape: {h3.shape}")
 
         h4 = self.conv4(h3)
+        #print(f"h4 shape: {h4.shape}")
+
         hd5 = self.conv5(h4)  # h5->20*20*1024
+        #print(f"hd5 shape: {hd5.shape}")
 
         # -------------Classification-------------
         cls_branch = self.cls(hd5).squeeze(3).squeeze(2)  # (B, N, 1, 1) -> (B, N)
@@ -338,6 +346,8 @@ class UNet_3Plus_DeepSup(nn.Module):
         h3_PT_hd4 = self.h3_PT_hd4_relu(self.h3_PT_hd4_bn(self.h3_PT_hd4_conv(self.h3_PT_hd4(h3))))
         h4_Cat_hd4 = self.h4_Cat_hd4_relu(self.h4_Cat_hd4_bn(self.h4_Cat_hd4_conv(h4)))
         hd5_UT_hd4 = self.hd5_UT_hd4_relu(self.hd5_UT_hd4_bn(self.hd5_UT_hd4_conv(self.hd5_UT_hd4(hd5))))
+
+
         hd4 = self.relu4d_1(self.bn4d_1(self.conv4d_1(
             torch.cat((h1_PT_hd4, h2_PT_hd4, h3_PT_hd4, h4_Cat_hd4, hd5_UT_hd4), 1)))) # hd4->40*40*UpChannels
 
