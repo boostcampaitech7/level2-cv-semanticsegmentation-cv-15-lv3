@@ -371,11 +371,11 @@ def main():
                     if hand_type == 'Left':
                         with col1:
                             st.subheader(f"{hand_type} Hand")
-                            st.image(img, use_column_width=True)
+                            st.image(img, use_container_width=True)
                     else:
                         with col2:
                             st.subheader(f"{hand_type} Hand")
-                            st.image(img, use_column_width=True)
+                            st.image(img, use_container_width=True)
                 else:
                     st.error(f"Cannot load image: {img_path}")
 
@@ -427,11 +427,11 @@ def main():
                         if hand_type == 'Left':
                             with col1:
                                 st.subheader(f"{hand_type} Hand")
-                                st.image(img, use_column_width=True)
+                                st.image(img, use_container_width=True)
                         else:
                             with col2:
                                 st.subheader(f"{hand_type} Hand")
-                                st.image(img, use_column_width=True)
+                                st.image(img, use_container_width=True)
                     else:
                         st.error(f"Cannot load image: {img_path}")
 
