@@ -7,7 +7,7 @@ import pandas as pd
 import argparse
 from datetime import timedelta
 import time
-
+from glob import glob
 from config.config import Config
 from dataset.dataset import XRayDataset
 from dataset.transforms import Transforms
@@ -24,6 +24,10 @@ def validation(model, data_loader, device, threshold=0.5, save_gt=False):
     pred_rles = []
     gt_rles = []
     filename_and_class = []
+    
+    # 실제 이미지 파일 이름 가져오기
+    from glob import glob
+    image_paths = sorted(glob(os.path.join(Config.TRAIN_IMAGE_ROOT, "*", "*.png")))
     
     with torch.no_grad():
         with tqdm(total=len(data_loader), desc='[Validation]') as pbar:
@@ -59,17 +63,19 @@ def validation(model, data_loader, device, threshold=0.5, save_gt=False):
                 
                 # RLE 인코딩
                 for b_idx in range(masks_for_rle.shape[0]):
-                    image_name = f"image_{idx * data_loader.batch_size + b_idx}"
-                    for c in range(masks_for_rle.shape[1]):
-                        if model is not None:
-                            # 예측값 RLE
-                            pred_rle = encode_mask_to_rle(outputs_for_rle[b_idx, c])
-                            pred_rles.append(pred_rle)
+                    img_idx = idx * data_loader.batch_size + b_idx
+                    if img_idx < len(image_paths):
+                        image_path = image_paths[img_idx]
+                        image_name = os.path.basename(image_path)
                         
-                        # Ground truth RLE
-                        gt_rle = encode_mask_to_rle(masks_for_rle[b_idx, c])
-                        gt_rles.append(gt_rle)
-                        filename_and_class.append(f"{Config.IND2CLASS[c]}_{image_name}")
+                        for c in range(masks_for_rle.shape[1]):
+                            if model is not None:
+                                pred_rle = encode_mask_to_rle(outputs_for_rle[b_idx, c])
+                                pred_rles.append(pred_rle)
+                            
+                            gt_rle = encode_mask_to_rle(masks_for_rle[b_idx, c])
+                            gt_rles.append(gt_rle)
+                            filename_and_class.append(f"{Config.IND2CLASS[c]}_{image_name}")
                 
                 pbar.update(1)
                 if model is not None:
@@ -100,17 +106,14 @@ def validation(model, data_loader, device, threshold=0.5, save_gt=False):
             "class": classes,
             "rle": pred_rles,
         })
+        return pred_df  # gt_df 제거
     
     gt_df = pd.DataFrame({
         "image_name": filenames,
         "class": classes,
         "rle": gt_rles,
     })
-    
-    if model is not None:
-        return pred_df, gt_df
-    else:
-        return None, gt_df
+    return gt_df  # pred_df 제거
 
 def main(args):
     # Device 설정
@@ -140,7 +143,8 @@ def main(args):
         
         # Validation 실행 및 결과 저장
         if args.save_gt:
-            pred_df, gt_df = validation(model, valid_loader, device, args.threshold, save_gt=True)
+            pred_df = validation(model, valid_loader, device, args.threshold, save_gt=True)
+            gt_df = validation(None, valid_loader, device, args.threshold, save_gt=True)
             model_name = args.model_path.split('/')[-1]
             pred_df.to_csv(f"{model_name.split('.')[0]}_val.csv", index=False)
             gt_df.to_csv("val_gt.csv", index=False)
@@ -148,12 +152,13 @@ def main(args):
             print(f"Ground truth results saved to val_gt.csv")
         else:
             pred_df = validation(model, valid_loader, device, args.threshold)
-            pred_df.to_csv(f"{args.model_path.split('/')[-1]}_val.csv", index=False)
-            print(f"\nResults saved to {args.model_path.split('/')[-1]}_val.csv")
+            model_name = args.model_path.split('/')[-1]
+            pred_df.to_csv(f"{model_name.split('.')[0]}_val.csv", index=False)
+            print(f"\nResults saved to {model_name.split('.')[0]}_val.csv")
     else:
         # Ground truth만 생성
         print("\nGenerating ground truth only...")
-        _, gt_df = validation(None, valid_loader, device, args.threshold, save_gt=True)
+        gt_df = validation(None, valid_loader, device, args.threshold, save_gt=True)
         gt_df.to_csv("val_gt.csv", index=False)
         print("Ground truth results saved to val_gt.csv")
 
