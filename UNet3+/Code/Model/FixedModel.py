@@ -8,7 +8,7 @@ from Util.InitWeights import init_weights
 from Util.SetSeed import set_seed
 from .layer import unetConv2, BottleNeck
 import torchvision.models as models
-from torchvision.models import convnext_large
+from torchvision.models import convnext_large, ConvNeXt_Large_Weights
 
 set_seed()
 
@@ -23,7 +23,7 @@ class UNet_3Plus_DeepSup(nn.Module):
         filters = [192, 384, 768, 1536, 1536]
 
         # ConvNeXt Large Encoder
-        self.convnext = convnext_large(pretrained=pretrained).features
+        self.convnext = convnext_large(weights=ConvNeXt_Large_Weights.DEFAULT).features
         #인코더 1 # H, W /filters[0]
         # 2 # H/2, W/2 / filters[1]
         # 3 # H/4, W/4 / filters[2]
@@ -406,7 +406,7 @@ class UNet_3Plus_DeepSup(nn.Module):
         '''
         
         if self.training:
-            return torch.cat((d1, d2, d3, d4, d5), dim=0) 
+            return d1, d2, d3, d4, d5
         else:
             #print(d1)
             return d1

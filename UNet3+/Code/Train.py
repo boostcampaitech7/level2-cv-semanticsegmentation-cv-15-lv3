@@ -39,26 +39,34 @@ def train(model, data_loader, val_loader, criterion, optimizer, scheduler, accum
         optimizer.zero_grad()
 
         for step, (images, masks) in enumerate(data_loader):
-            # GPU 연산을 위해 device 할당
             images, masks = images.cuda(), masks.cuda()
 
-            # Inference 및 Mixed Precision 적용
             with autocast():  # Mixed Precision 모드
-                outputs = model(images)
-                batch_masks = masks.repeat(5, 1, 1, 1)
+                outputs = model(images)  # 모델 출력 (d1, d2, d3, d4, d5)
+                weights = [0.43, 0.35, 0.2, 0.15, 0.1]  # 가중치 설정
 
-                loss, focal, ms_ssim_loss, iou, dice = criterion(outputs, batch_masks)  # 각 출력의 손실 계산
+                loss = 0
+                focal, ms_ssim_loss, iou, dice = 0, 0, 0, 0
 
-            # Loss Scaling 및 Backpropagation (Gradient Accumulation)
+                for i, output in enumerate(outputs):  # Deep Supervision 출력별 손실 계산
+                    batch_loss, batch_focal, batch_ms_ssim, batch_iou, batch_dice = criterion(output, masks)
+                    weighted_loss = weights[i] * batch_loss
+                    loss += weighted_loss
+
+                    # 개별 손실 성분 계산
+                    focal += weights[i] * batch_focal
+                    ms_ssim_loss += weights[i] * batch_ms_ssim
+                    iou += weights[i] * batch_iou
+                    dice += weights[i] * batch_dice
+
+            # Mixed Precision Loss Scaling 및 Backpropagation
             scaler.scale(loss).backward()
 
-            # Gradient Accumulation Steps 마다 업데이트
             if (step + 1) % accumulation_steps == 0:
-                scaler.step(optimizer)  # Optimizer Step
-                scaler.update()  # Scaler 업데이트
-                optimizer.zero_grad()  # Gradient 초기화
+                scaler.step(optimizer)
+                scaler.update()
+                optimizer.zero_grad()
 
-            # Step 주기에 따른 손실 출력
             if (step + 1) % 80 == 0:
                 print(
                     f'{datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")} | '
@@ -70,6 +78,7 @@ def train(model, data_loader, val_loader, criterion, optimizer, scheduler, accum
                     f'IoU: {round(iou.item(), 4)}, '
                     f'Dice: {round(dice.item(), 4)}'
                 )
+
 
         # 마지막 미니배치 처리 후 Gradient 업데이트
         if (step + 1) % accumulation_steps != 0:
