@@ -1,18 +1,145 @@
 import os
+import json
+import numpy as np
 import torch
 import torch.nn.functional as F
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, Dataset
 from tqdm import tqdm
 import pandas as pd
 import argparse
 from datetime import timedelta
 import time
-
+import cv2
+import random
+from glob import glob
+from sklearn.model_selection import GroupKFold
 from config.config import Config
-from dataset.dataset import XRayDataset
 from dataset.transforms import Transforms
 from utils.metrics import dice_coef
 from utils.rle import encode_mask_to_rle
+
+def set_seed(seed):
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+    np.random.seed(seed)
+    random.seed(seed)  
+
+class XRayDataset(Dataset):
+    def __init__(self, image_root, label_root=None, is_train=True, transforms=None):
+        self.is_train = is_train
+        self.transforms = transforms
+        self.CLASS2IND = Config.CLASS2IND
+        self.image_root = image_root
+        self.label_root = label_root
+        
+        # Get PNG and JSON files
+        self.pngs = self._get_pngs()
+        self.jsons = self._get_jsons() if label_root else None
+        
+        if label_root:
+            # Verify matching between pngs and jsons
+            jsons_fn_prefix = {os.path.splitext(fname)[0] for fname in self.jsons}
+            pngs_fn_prefix = {os.path.splitext(fname)[0] for fname in self.pngs}
+            assert len(jsons_fn_prefix - pngs_fn_prefix) == 0, "Some JSON files don't have matching PNGs"
+            assert len(pngs_fn_prefix - jsons_fn_prefix) == 0, "Some PNG files don't have matching JSONs"
+        
+        # Split dataset
+        _filenames = np.array(self.pngs)
+        _labelnames = np.array(self.jsons) if self.jsons else None
+
+        # split train-valid
+        # 한 폴더 안에 한 인물의 양손에 대한 파일이 존재하기 때문에
+        # 폴더 이름을 그룹으로 해서 GroupKFold를 수행
+        groups = [os.path.dirname(fname) for fname in _filenames]
+        
+        # dummy label
+        ys = [0 for _ in _filenames]
+        
+        # 전체 데이터의 20%를 validation data로 사용
+        gkf = GroupKFold(n_splits=5)
+        
+        filenames = []
+        labelnames = []
+        
+        for i, (x, y) in enumerate(gkf.split(_filenames, ys, groups)):
+            if is_train:
+                # 0번을 validation dataset으로 사용
+                if i == 0:
+                    continue
+                    
+                filenames += list(_filenames[y])
+                labelnames += list(_labelnames[y]) if _labelnames is not None else []
+            else:
+                filenames = list(_filenames[y])
+                labelnames = list(_labelnames[y]) if _labelnames is not None else []
+                break
+        
+        self.filenames = filenames
+        self.labelnames = labelnames
+
+    def _get_pngs(self):
+        return sorted([
+            os.path.relpath(os.path.join(root, fname), start=self.image_root)
+            for root, _dirs, files in os.walk(self.image_root)
+            for fname in files
+            if os.path.splitext(fname)[1].lower() == ".png"
+        ])
+        
+    def _get_jsons(self):
+        return sorted([
+            os.path.relpath(os.path.join(root, fname), start=self.label_root)
+            for root, _dirs, files in os.walk(self.label_root)
+            for fname in files
+            if os.path.splitext(fname)[1].lower() == ".json"
+        ])
+
+    def __len__(self):
+        return len(self.filenames)
+
+    def __getitem__(self, item):
+        image_name = self.filenames[item]
+        image_path = os.path.join(self.image_root, image_name)
+        
+        image = cv2.imread(image_path)
+        image = image / 255.
+        
+        label_name = self.labelnames[item]
+        label_path = os.path.join(self.label_root, label_name)
+        
+        # (H, W, NC) 모양의 label 생성
+        label_shape = tuple(image.shape[:2]) + (len(Config.CLASSES),)
+        label = np.zeros(label_shape, dtype=np.uint8)
+        
+        # label 파일 읽기
+        with open(label_path, "r") as f:
+            annotations = json.load(f)
+        annotations = annotations["annotations"]
+        
+        # 클래스 별로 처리
+        for ann in annotations:
+            c = ann["label"]
+            class_ind = self.CLASS2IND[c]
+            points = np.array(ann["points"])
+            
+            # polygon 포맷을 dense한 mask 포맷으로 변환
+            class_label = np.zeros(image.shape[:2], dtype=np.uint8)
+            cv2.fillPoly(class_label, [points], 1)
+            label[..., class_ind] = class_label
+        
+        if self.transforms is not None:
+            inputs = {"image": image, "mask": label} if self.is_train else {"image": image}
+            result = self.transforms(**inputs)
+            image = result["image"]
+            label = result["mask"] if self.is_train else label
+        
+        # channel first 포맷으로 변경
+        image = image.transpose(2, 0, 1)
+        label = label.transpose(2, 0, 1)
+        
+        return torch.from_numpy(image).float(), torch.from_numpy(label).float(), os.path.basename(image_path)
 
 def validation(model, data_loader, device, threshold=0.5, save_gt=False):
     """Validation 함수"""
@@ -27,7 +154,7 @@ def validation(model, data_loader, device, threshold=0.5, save_gt=False):
     
     with torch.no_grad():
         with tqdm(total=len(data_loader), desc='[Validation]') as pbar:
-            for idx, (images, masks) in enumerate(data_loader):
+            for idx, (images, masks, image_names) in enumerate(data_loader):
                 if model is not None:
                     images = images.to(device)
                     masks = masks.to(device)
@@ -59,14 +186,13 @@ def validation(model, data_loader, device, threshold=0.5, save_gt=False):
                 
                 # RLE 인코딩
                 for b_idx in range(masks_for_rle.shape[0]):
-                    image_name = f"image_{idx * data_loader.batch_size + b_idx}"
+                    image_name = image_names[b_idx]
+                    
                     for c in range(masks_for_rle.shape[1]):
                         if model is not None:
-                            # 예측값 RLE
                             pred_rle = encode_mask_to_rle(outputs_for_rle[b_idx, c])
                             pred_rles.append(pred_rle)
                         
-                        # Ground truth RLE
                         gt_rle = encode_mask_to_rle(masks_for_rle[b_idx, c])
                         gt_rles.append(gt_rle)
                         filename_and_class.append(f"{Config.IND2CLASS[c]}_{image_name}")
@@ -100,19 +226,17 @@ def validation(model, data_loader, device, threshold=0.5, save_gt=False):
             "class": classes,
             "rle": pred_rles,
         })
+        return pred_df  # gt_df 제거
     
     gt_df = pd.DataFrame({
         "image_name": filenames,
         "class": classes,
         "rle": gt_rles,
     })
-    
-    if model is not None:
-        return pred_df, gt_df
-    else:
-        return None, gt_df
+    return gt_df  # pred_df 제거
 
 def main(args):
+    set_seed(Config.RANDOM_SEED)
     # Device 설정
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     
@@ -140,7 +264,8 @@ def main(args):
         
         # Validation 실행 및 결과 저장
         if args.save_gt:
-            pred_df, gt_df = validation(model, valid_loader, device, args.threshold, save_gt=True)
+            pred_df = validation(model, valid_loader, device, args.threshold, save_gt=True)
+            gt_df = validation(None, valid_loader, device, args.threshold, save_gt=True)
             model_name = args.model_path.split('/')[-1]
             pred_df.to_csv(f"{model_name.split('.')[0]}_val.csv", index=False)
             gt_df.to_csv("val_gt.csv", index=False)
@@ -148,12 +273,13 @@ def main(args):
             print(f"Ground truth results saved to val_gt.csv")
         else:
             pred_df = validation(model, valid_loader, device, args.threshold)
-            pred_df.to_csv(f"{args.model_path.split('/')[-1]}_val.csv", index=False)
-            print(f"\nResults saved to {args.model_path.split('/')[-1]}_val.csv")
+            model_name = args.model_path.split('/')[-1]
+            pred_df.to_csv(f"{model_name.split('.')[0]}_val.csv", index=False)
+            print(f"\nResults saved to {model_name.split('.')[0]}_val.csv")
     else:
         # Ground truth만 생성
         print("\nGenerating ground truth only...")
-        _, gt_df = validation(None, valid_loader, device, args.threshold, save_gt=True)
+        gt_df = validation(None, valid_loader, device, args.threshold, save_gt=True)
         gt_df.to_csv("val_gt.csv", index=False)
         print("Ground truth results saved to val_gt.csv")
 
