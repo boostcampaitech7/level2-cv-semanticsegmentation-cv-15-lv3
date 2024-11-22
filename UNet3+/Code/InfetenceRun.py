@@ -89,7 +89,6 @@ def test(model, data_loader, thr=0.5):
 
             # restore original size
             outputs = F.interpolate(outputs, size=(2048, 2048), mode="bilinear")
-            outputs = torch.sigmoid(outputs)
             outputs = (outputs > thr).detach().cpu().numpy()
 
             for output, image_name in zip(outputs, image_names):

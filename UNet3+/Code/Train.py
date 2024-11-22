@@ -13,19 +13,17 @@ def save_model(model, file_name=MODELNAME):
     output_path = os.path.join(SAVED_DIR, file_name)
     torch.save(model, output_path)
 
-def train(model, data_loader, val_loader, criterion, optimizer, scheduler, accumulation_steps=ACCUMULATION_STEPS):
+def train(model, data_loader, val_loader, criterion, optimizer, scheduler, accumulation_steps=ACCUMULATION_STEPS, threshold=0.92):
     """
     Args:
         accumulation_steps (int): Number of steps to accumulate gradients before updating.
+        threshold (float): Dice 점수를 기준으로 손실 함수 변경.
     """
     print(f'Start training with Gradient Accumulation (accumulation_steps={accumulation_steps})..')
     model.cuda()
 
     n_class = len(CLASSES)
     best_dice = 0.0
-
-    # 손실 가중치 (Deep Supervision)
-    deep_sup_weights = [0.5, 0.3, 0.2, 0.15, 0.1]  # 각 출력에 대한 가중치
 
     # Mixed Precision Scaler 생성
     scaler = GradScaler()
@@ -47,18 +45,12 @@ def train(model, data_loader, val_loader, criterion, optimizer, scheduler, accum
             # Inference 및 Mixed Precision 적용
             with autocast():  # Mixed Precision 모드
                 outputs = model(images)
+                batch_masks = masks.repeat(5, 1, 1, 1)
 
-                # Deep Supervision 처리: 여러 출력을 가정
-                if isinstance(outputs, (tuple, list)):  # 출력이 리스트/튜플 형태인 경우
-                    total_loss = 0.0
-                    for i, output in enumerate(outputs):
-                        loss = criterion(output, masks)  # 각 출력의 손실 계산
-                        total_loss += loss * deep_sup_weights[i]  # 가중치를 곱해 합산
-                else:  # 출력이 단일 텐서인 경우 (예외 처리)
-                    total_loss = criterion(outputs, masks)
+                loss, focal, ms_ssim_loss, iou, dice = criterion(outputs, batch_masks)  # 각 출력의 손실 계산
 
             # Loss Scaling 및 Backpropagation (Gradient Accumulation)
-            scaler.scale(total_loss).backward()
+            scaler.scale(loss).backward()
 
             # Gradient Accumulation Steps 마다 업데이트
             if (step + 1) % accumulation_steps == 0:
@@ -72,7 +64,11 @@ def train(model, data_loader, val_loader, criterion, optimizer, scheduler, accum
                     f'{datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")} | '
                     f'Epoch [{epoch+1}/{NUM_EPOCHS}], '
                     f'Step [{step+1}/{len(data_loader)}], '
-                    f'Loss: {round(total_loss.item(), 4)}'
+                    f'Loss: {round(loss.item(), 4)} | '
+                    f'Focal: {round(focal.item(), 4)}, '
+                    f'MS-SSIM: {round(ms_ssim_loss.item(), 4)}, '
+                    f'IoU: {round(iou.item(), 4)}, '
+                    f'Dice: {round(dice.item(), 4)}'
                 )
 
         # 마지막 미니배치 처리 후 Gradient 업데이트
@@ -83,7 +79,17 @@ def train(model, data_loader, val_loader, criterion, optimizer, scheduler, accum
 
         # Validation 주기에 따른 Loss 출력 및 Best Model 저장
         if (epoch + 1) % VAL_EVERY == 0:
-            dice = validation(epoch + 1, model, val_loader, criterion)
+            dice = validation(epoch + 1, model, val_loader)
+
+            # Validation 결과에 따른 손실 함수 선택
+            if dice < threshold:
+                print(f"Validation Dice ({dice:.4f}) < Threshold ({threshold}), using IoU Loss.")
+                criterion.delta = 0  # Dice Loss 비활성화
+                criterion.beta = 1   # IoU Loss 활성화
+            else:
+                print(f"Validation Dice ({dice:.4f}) >= Threshold ({threshold}), using Dice Loss.")
+                criterion.delta = 1  # Dice Loss 활성화
+                criterion.beta = 0   # IoU Loss 비활성화
 
             if best_dice < dice:
                 print(f"Best performance at epoch: {epoch + 1}, {best_dice:.4f} -> {dice:.4f}")

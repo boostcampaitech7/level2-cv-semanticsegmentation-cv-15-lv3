@@ -41,28 +41,28 @@ YOLO_SELECT_CLASS="others"
 RANDOM_SEED = 21
 
 # 적절하게 조절
-NUM_EPOCHS =52
+NUM_EPOCHS =75
 VAL_EVERY = 1
 
-ACCUMULATION_STEPS=32
+ACCUMULATION_STEPS=16
 BATCH_SIZE = 1
 IMSIZE=480
 
-LR = 0.0003
-MILESTONES=[20,30,37]
-GAMMA=0.2
+LR = 0.0008
+MILESTONES=[5,20,32,40,47]
+GAMMA=0.3
 
 
 SAVED_DIR = "/data/ephemeral/home/MCG/UNetRefactored/Creadted_model/"
-MODELNAME="othersCrop_AddBottleNeck_ConvTrans_dice_52.pt"
+MODELNAME="CropOthersChangeLoss.pt"
 if not os.path.isdir(SAVED_DIR):
     os.mkdir(SAVED_DIR)
     
 
 
-INFERENCE_MODEL_NAME="othersCrop_AddBottleNeck_ConvTrans_dice_52.pt"
+INFERENCE_MODEL_NAME="CropOthersChangeLoss.pt"
 
 TEST_IMAGE_ROOT="/data/ephemeral/home/MCG/data/test/DCM"
 
 CSVDIR="/data/ephemeral/home/MCG/UNetRefactored/CSV"
-CSVNAME="othersCrop_AddBottleNeck_ConvTrans_dice_52.csv"
+CSVNAME="CropOthersChangeLoss.csv"

@@ -10,7 +10,7 @@ from torch.utils.data import DataLoader
 
 from Model.FixedModel import UNet_3Plus_DeepSup
 from DataSet.DataLoder import get_image_label_paths
-from config import IMAGE_ROOT, LABEL_ROOT, BATCH_SIZE, IMSIZE, CLASSES, MILESTONES, GAMMA, LR, SAVED_DIR, VISUALIZE_TRAIN_DATA, SAVE_VISUALIZE_TRAIN_DATA_PATH
+from config import IMAGE_ROOT, LABEL_ROOT, BATCH_SIZE, IMSIZE, CLASSES, MILESTONES, GAMMA, LR, SAVED_DIR, VISUALIZE_TRAIN_DATA, SAVE_VISUALIZE_TRAIN_DATA_PATH,NUM_EPOCHS
 from DataSet.LabelBaseCropDataset import XRayDataset
 from Loss.Loss import CombinedLoss
 from Train import train
@@ -57,15 +57,15 @@ def main():
         train_filenames,
         train_labelnames,
         is_train=True,
-        save_dir=SAVE_VISUALIZE_TRAIN_DATA_PATH,
-        draw_enabled=VISUALIZE_TRAIN_DATA,
+        save_dir=None,
+        draw_enabled=False,
     )
     valid_dataset = XRayDataset(
         valid_filenames,
         valid_labelnames,
         is_train=False,
-        save_dir=None,
-        draw_enabled=False,
+        save_dir=SAVE_VISUALIZE_TRAIN_DATA_PATH,
+        draw_enabled=VISUALIZE_TRAIN_DATA,
     )
 
     train_loader = DataLoader(
@@ -87,11 +87,11 @@ def main():
     model = UNet_3Plus_DeepSup(n_classes=len(CLASSES))
 
     # Loss function 정의
-    criterion = CombinedLoss(focal_weight=1, iou_weight=1, ms_ssim_weight=1, dice_weight=1)
+    criterion = CombinedLoss(focal_weight=1, iou_weight=1, ms_ssim_weight=1, dice_weight=0)
 
     # Optimizer 정의
-    optimizer = optim.Adam(params=model.parameters(), lr=LR, weight_decay=1e-6)
-    scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=MILESTONES, gamma=GAMMA)
+    optimizer = optim.AdamW(params=model.parameters(), lr=LR, weight_decay=1e-4)
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=NUM_EPOCHS, eta_min=1e-6)
 
     train(model, train_loader, valid_loader, criterion, optimizer, scheduler)
 

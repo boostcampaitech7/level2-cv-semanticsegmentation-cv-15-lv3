@@ -42,10 +42,8 @@ class UNet_3Plus_DeepSup(nn.Module):
         self.conv3 = self.convnext[3:5]  # ConvNeXt Stage 2 (Output: 28x28, 384 channels)
         self.conv4 = self.convnext[5:7]
         self.conv5 = nn.Sequential(
-            nn.Conv2d(filters[4], filters[4], kernel_size=3, stride=2, padding=1),  # DownSample
-            nn.BatchNorm2d(filters[4]),
-            nn.GELU(),  # GELU activation function
-            self.convnext[7:])   # ConvNeXt Stage 4 (Output: 7x7, 1536 channels)
+        nn.MaxPool2d(kernel_size=2, stride=2),  # DownSample using MaxPool
+        self.convnext[7:])
 
 
         ## -------------Decoder--------------
@@ -401,8 +399,9 @@ class UNet_3Plus_DeepSup(nn.Module):
         d5 = self.dotProduct(d5, cls_branch_mask)
         
         '''
+        
         if self.training:
-            return d1, d2, d3, d4, d5
+            return torch.cat((d1, d2, d3, d4, d5), dim=0) 
         else:
             #print(d1)
             return d1

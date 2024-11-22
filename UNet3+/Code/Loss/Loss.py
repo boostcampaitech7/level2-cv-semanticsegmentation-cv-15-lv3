@@ -2,7 +2,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from math import exp
-
+import numpy as np
+import torchvision
 
 def gaussian(window_size, sigma):
     gauss = torch.Tensor([exp(-(x - window_size//2)**2/float(2*sigma**2)) for x in range(window_size)])
@@ -107,27 +108,46 @@ class MSSSIM(torch.nn.Module):
     def forward(self, img1, img2):
         return msssim(img1, img2, window_size=self.window_size, size_average=self.size_average, normalize=True)
 
-
-
-
 class CombinedLoss(nn.Module):
     def __init__(self, focal_weight=1, iou_weight=1, ms_ssim_weight=1, dice_weight=1, smooth=1e-6, channel=3):
-        """
-        Combined Loss = alpha * Focal Loss + beta * IoU Loss + gamma * MS-SSIM Loss + delta * Dice Loss
-        """
         super(CombinedLoss, self).__init__()
-        self.alpha = focal_weight  # Weight for Focal Loss
-        self.beta = iou_weight    # Weight for IoU Loss
-        self.gamma = ms_ssim_weight  # Weight for MS-SSIM Loss
-        self.delta = dice_weight  # Weight for Dice Loss
+        self.focal_weight = focal_weight
+        self.iou_weight = iou_weight
+        self.ms_ssim_weight = ms_ssim_weight
+        self.dice_weight = dice_weight
         self.smooth = smooth
-        self.ms_ssim = MSSSIM(window_size=7, size_average=True, channel=channel)
+        self.ms_ssim = MSSSIM(window_size=11, size_average=True, channel=channel)
+        self.bce_loss_fn = nn.BCEWithLogitsLoss(reduction='mean')  # BCE loss with logits
+    def adaptive_focal_loss(self, logits, targets, alpha=1, gamma_min=1.5, gamma_max=4.0, reduce=True):
+        # Compute BCE loss
+        BCE_loss = F.binary_cross_entropy_with_logits(logits, targets, reduction='none')#self.bce_loss_fn(logits, targets)
 
-    def focal_loss(self, logits, targets, alpha=0.8, gamma=2):
-        probs = torch.sigmoid(logits)
-        focal_loss = -alpha * (1 - probs) ** gamma * targets * torch.log(probs + 1e-6) \
-                     - (1 - alpha) * probs ** gamma * (1 - targets) * torch.log(1 - probs + 1e-6)
-        return focal_loss.mean()
+        # Compute pt (predicted probability for true class)
+        pt = torch.exp(-BCE_loss)
+
+        # Dynamically adjust gamma based on pt
+        gamma = gamma_min + (1 - pt) * (gamma_max - gamma_min)
+        gamma = torch.clamp(gamma, gamma_min, gamma_max)  # Ensure gamma stays within [gamma_min, gamma_max]
+
+        # Compute Focal Loss
+        F_loss = alpha * (1 - pt) ** gamma * BCE_loss
+
+        # Reduce loss if required
+        if reduce:
+            return torch.mean(F_loss)
+        else:
+            return F_loss
+
+    
+    def focal_loss(self, logits, targets, alpha=1, gamma=1.8, reduce=True):
+        BCE_loss= F.binary_cross_entropy_with_logits(logits, targets, reduction='none')#self.bce_loss_fn(logits, targets)
+        #print("BCE:",BCE_loss)
+        pt = torch.exp(-BCE_loss)
+        F_loss = alpha * (1-pt)**gamma * BCE_loss
+        if reduce:
+            return torch.mean(F_loss)
+        else:
+            return F_loss
 
     def iou_loss(self, logits, targets):
         probs = torch.sigmoid(logits)
@@ -137,24 +157,27 @@ class CombinedLoss(nn.Module):
         return iou_loss.mean()
 
     def dice_loss(self, logits, targets):
-        """
-        Dice Loss = 1 - (2 * intersection + smooth) / (sum_probs + sum_targets + smooth)
-        """
         probs = torch.sigmoid(logits)
         intersection = (probs * targets).sum(dim=(2, 3))
         sum_probs = probs.sum(dim=(2, 3))
         sum_targets = targets.sum(dim=(2, 3))
         dice = (2 * intersection + self.smooth) / (sum_probs + sum_targets + self.smooth)
         return 1 - dice.mean()
-
+    def bce_loss(self, logits, targets):
+        # Use BCEWithLogitsLoss for numerical stability
+        return self.bce_loss_fn(logits, targets)
     def forward(self, logits, targets):
-        # Calculate individual losses
-        focal = self.focal_loss(logits, targets)
-        #iou = self.iou_loss(logits, targets)
-        ms_ssim_loss = 1 - self.ms_ssim(torch.sigmoid(logits), targets)
-        dice = self.dice_loss(logits, targets)
+        focal = self.focal_loss(logits, targets)*self.focal_weight 
+        ms_ssim_loss = 1 - self.ms_ssim(torch.sigmoid(logits), targets) * self.ms_ssim_weight
+        dice = self.dice_loss(logits, targets) * self.dice_weight
+        iou= self.iou_loss(logits,targets) * self.iou_weight 
+        #bce = F.binary_cross_entropy_with_logits(logits, targets, reduction='mean')
 
-        # Combine losses with respective weights
-        total_loss = self.alpha * focal  + self.gamma * ms_ssim_loss  + self.delta * dice #self.beta * iou #+ self.delta * dice
-        return total_loss
+
+        # Combined loss
+        total_loss = focal + ms_ssim_loss +iou + dice
+
+        # 개별 손실 값 로깅을 위해 반환
+        return total_loss, focal, ms_ssim_loss,iou, dice,
+
 
