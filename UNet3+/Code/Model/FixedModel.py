@@ -300,14 +300,19 @@ class UNet_3Plus_DeepSup(nn.Module):
             nn.AdaptiveMaxPool2d(1),         # 클래스별 전역 정보 추출
             nn.Sigmoid()                     # 멀티라벨 환경에서 클래스 존재 확률 출력
         )
-        # initialise weights
-        for m in self.modules():
-            if isinstance(m, nn.Conv2d):
-                init_weights(m, init_type='kaiming')
-            elif isinstance(m, nn.BatchNorm2d):
-                init_weights(m, init_type='kaiming')
-            elif isinstance(m, nn.ConvTranspose2d):
-                init_weights(m, init_type='kaiming')
+        encoder_ids = {id(module) for module in self.convnext}  # ConvNeXt 모듈 ID 수집
+        for module in self.modules():
+            if id(module) in encoder_ids:
+                #print(module)
+                continue  # ConvNeXt 모듈 건너뜀
+            if isinstance(module, nn.Conv2d):
+                init_weights(module, init_type='kaiming')
+            elif isinstance(module, nn.BatchNorm2d):
+                init_weights(module, init_type='kaiming')
+            elif isinstance(module, nn.ConvTranspose2d):
+                init_weights(module, init_type='kaiming')
+
+
 
     
     def dotProduct(self,seg,cls):
