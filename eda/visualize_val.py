@@ -119,51 +119,55 @@ def get_image_path(image_id, base_path):
 
 def get_validation_ids(pred_df, image_base_path):
     """
-    DCM 폴더의 ID들을 탐색하여 validation 데이터가 있는 ID만 추출
+    이미지 이름에서 validation ID 추출
     """
-    validation_ids = []
+    validation_ids = set()  # 중복 방지를 위해 set 사용
+    
+    # pred_df의 이미지 이름들 확인
+    pred_image_names = pred_df['image_name'].unique()
+    # st.sidebar.write("Number of unique images in pred_df:", len(pred_image_names))
+    # st.sidebar.write("First few prediction image names:", pred_image_names[:5])
+    
+    # 실제 존재하는 ID 폴더들 확인
     dcm_folders = sorted(list(Path(image_base_path).glob('ID*')))
+    # st.sidebar.write("Number of DCM folders found:", len(dcm_folders))
+    # st.sidebar.write("First few DCM folders:", [f.name for f in dcm_folders[:5]])
     
-    # 디버깅: 찾은 DCM 폴더들 출력
-    st.sidebar.write("Found DCM folders:", [f.name for f in dcm_folders])
-    
-    # pred_df의 이미지 이름들을 set으로 변환
-    pred_image_names = set(pred_df['image_name'].unique())
-    
-    # 디버깅: 예측 CSV의 이미지 이름들 출력
-    st.sidebar.write("Prediction image names:", list(pred_image_names)[:5], "...")
-    
+    # 각 DCM 폴더에서 이미지 찾기
     for folder in dcm_folders:
-        # 각 ID 폴더의 이미지들 확인
+        folder_id = folder.name[2:].zfill(3)  # 'ID166' -> '166'
         folder_images = list(folder.glob('*.png'))
         
-        # 디버깅: 현재 폴더의 이미지들 출력
-        st.sidebar.write(f"Images in {folder.name}:", [f.name for f in folder_images])
-        
+        # 폴더 내 이미지들의 숫자 부분 추출
         for img_path in folder_images:
-            # 디버깅: 이미지 이름 비교
-            st.sidebar.write(f"Checking {img_path.name}")
-            if img_path.name in pred_image_names:
-                # ID 추출 (예: 'ID001' -> '001')
-                id_num = folder.name[2:].zfill(3)  # 항상 3자리 숫자로 맞춤
-                if id_num not in validation_ids:
-                    validation_ids.append(id_num)
-                    st.sidebar.write(f"Added ID: {id_num}")
+            img_number = ''.join(filter(str.isdigit, img_path.name))[:13]
+            # pred_df의 모든 이미지 이름과 비교
+            for pred_img_name in pred_image_names:
+                if img_number in pred_img_name:  # 숫자 부분이 포함되어 있다면 매칭
+                    validation_ids.add(folder_id)
+                    break
+            if folder_id in validation_ids:
                 break
     
-    result = sorted(validation_ids, key=lambda x: int(x))
-    st.sidebar.write("Final validation IDs:", result)
+    result = sorted(list(validation_ids), key=lambda x: int(x))
+    # st.sidebar.write("Found validation IDs:", result)
     return result
 
 def main():
     st.set_page_config(layout="wide")
     st.title("Validation Results Visualization")
 
-    # 세션 상태 초기화
+    # 세션 상태 초기화를 더 명확하게
     if 'current_idx' not in st.session_state:
         st.session_state.current_idx = 0
     if 'selected_pred_csv' not in st.session_state:
         st.session_state.selected_pred_csv = None
+
+    def increment_idx():
+        st.session_state.current_idx = (st.session_state.current_idx + 1) % len(unique_images)
+        
+    def decrement_idx():
+        st.session_state.current_idx = (st.session_state.current_idx - 1) % len(unique_images)
 
     # CSV 파일 로드
     script_dir = Path(__file__).parent.resolve()
@@ -171,8 +175,8 @@ def main():
     image_base_path = script_dir.parent / "data" / "train" / "DCM"
     
     # 경로 디버깅
-    st.sidebar.write("CSV Directory:", csv_dir)
-    st.sidebar.write("Image Directory:", image_base_path)
+    # st.sidebar.write("CSV Directory:", csv_dir)
+    # st.sidebar.write("Image Directory:", image_base_path)
     
     pred_files, gt_files = get_csv_files(csv_dir)
     
@@ -192,9 +196,8 @@ def main():
     # CSV 내용 확인 및 디버깅
     if selected_pred and gt_files:
         pred_df = pd.read_csv(selected_pred)
-        st.sidebar.write("CSV columns:", pred_df.columns)
-        st.sidebar.write("Sample data:", pred_df[['image_name', 'class']].head())
-
+        gt_df = pd.read_csv(gt_files[0])
+        
         # validation ID 추출
         unique_images = get_validation_ids(pred_df, image_base_path)
         
@@ -205,14 +208,22 @@ def main():
         # 현재 인덱스가 범위를 벗어나지 않도록 조정
         st.session_state.current_idx = min(st.session_state.current_idx, len(unique_images) - 1)
 
-        # 이미지 선택 (사이드바로 이동)
-        st.sidebar.subheader("Image Selection")
-        selected_img = st.sidebar.selectbox(
-            "Select Image ID:",
-            options=unique_images,
-            index=st.session_state.current_idx,
-            format_func=lambda x: f"ID{x}"
-        )
+        # 이전/다음 버튼과 선택 박스를 가로로 배치
+        col1, col2, col3 = st.sidebar.columns([1,2,1])
+        with col1:
+            st.button("◀", on_click=decrement_idx, key="prev")
+        
+        with col2:
+            selected_img = st.selectbox(
+                "Select Image ID:",
+                options=unique_images,
+                index=st.session_state.current_idx,
+                format_func=lambda x: f"ID{x}",
+                key="image_select"
+            )
+        
+        with col3:
+            st.button("▶", on_click=increment_idx, key="next")
         
         if selected_img:
             st.session_state.current_idx = unique_images.index(selected_img)
@@ -220,14 +231,8 @@ def main():
         # Visualization Options
         st.sidebar.subheader("Visualization Options")
         show_labels = st.sidebar.checkbox("Show bone labels", value=True)
-        show_contours = st.sidebar.checkbox("Show contours", value=True)
-        show_mask = st.sidebar.checkbox("Show mask", value=False)
-        
-        if show_mask:
-            mask_opacity = st.sidebar.slider("Mask opacity", 0.0, 1.0, 0.5)
-        else:
-            mask_opacity = 0.5
-            
+        show_gt = st.sidebar.checkbox("Show Ground Truth", value=True)
+        show_pred = st.sidebar.checkbox("Show Prediction", value=True)
         line_thickness = st.sidebar.slider("Line thickness", 1, 5, 2)
         
         # 뼈 선택
@@ -240,97 +245,85 @@ def main():
         )
 
         if selected_img:
-            # ID 폴더에서 이미지 찾기
-            id_folder = f"ID{selected_img}"  # 이미 올바른 형식
+            id_folder = f"ID{selected_img}"
             folder_path = image_base_path / id_folder
             
             if folder_path.exists():
-                # 해당 ID 폴더의 이미지들 로드
                 img_files = sorted(list(folder_path.glob('*.png')))
                 
                 if len(img_files) == 2:
-                    # 결과 시각화를 위한 컬럼 생성
-                    col1, col2 = st.columns(2)
-                    
-                    for i, (hand_type, img_file) in enumerate(zip(['Right', 'Left'], img_files)):
+                    for i, img_file in enumerate(img_files):  # hand_type 제거
                         img = cv2.imread(str(img_file))
                         if img is not None:
                             img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
                             
-                            # 예측과 GT 데이터 필터링 (파일 이름으로 정확히 매칭)
+                            # 이미지 매칭을 위한 숫자 추출
                             img_name = img_file.name
-                            pred_img_data = pred_df[pred_df['image_name'] == img_name]
-                            gt_img_data = gt_df[gt_df['image_name'] == img_name]
+                            img_number = ''.join(filter(str.isdigit, img_name))[:13]
                             
-                            # 결과 시각화
-                            col = col1 if i == 0 else col2
-                            with col:
-                                st.subheader(f"{hand_type} Hand")
+                            # pred_df와 gt_df에서 해당 숫자를 포함하는 모든 이미지 이름 가져오기
+                            matching_pred_images = sorted(list(set([  # 중복 제거
+                                name for name in pred_df['image_name'].unique()
+                                if ''.join(filter(str.isdigit, name))[:13] == img_number
+                            ])))
+                            matching_gt_images = sorted(list(set([  # 중복 제거
+                                name for name in gt_df['image_name'].unique()
+                                if ''.join(filter(str.isdigit, name))[:13] == img_number
+                            ])))
+                            
+                            # GT와 예측을 같은 이미지에 표시
+                            comparison_img = img.copy()
+                            
+                            # 매칭된 데이터 찾기
+                            if matching_pred_images and matching_gt_images:
+                                pred_image_name = matching_pred_images[0]
+                                gt_image_name = matching_gt_images[0]
                                 
-                                # 원본 이미지
-                                st.markdown("**Original Image**")
-                                st.image(img, use_container_width=True)
+                                pred_img_data = pred_df[pred_df['image_name'] == pred_image_name].copy()  # copy 추가
+                                gt_img_data = gt_df[gt_df['image_name'] == gt_image_name].copy()  # copy 추가
                                 
-                                # Prediction
-                                st.markdown("**Prediction**")
-                                pred_img = img.copy()
-                                if show_mask:
-                                    # 마스크 생성 (검은 배경에 마스크만)
-                                    mask_img = visualize_bones_from_rle(
-                                        np.zeros_like(img),
-                                        pred_img_data,
-                                        selected_bones,
-                                        show_labels=False,
-                                        thickness=cv2.FILLED
-                                    )
-                                    # 마스크와 원본 이미지 블렌딩
-                                    pred_img = cv2.addWeighted(pred_img, 1, mask_img, mask_opacity, 0)
-                                
-                                if show_contours:
-                                    # 윤곽선 추가
-                                    pred_img = visualize_bones_from_rle(
-                                        pred_img,
-                                        pred_img_data,
-                                        selected_bones,
-                                        show_labels=show_labels,
-                                        thickness=line_thickness
-                                    )
-                                
-                                # 수정된 이미지가 있을 때만 표시
-                                if show_mask or show_contours:
-                                    st.image(pred_img, use_container_width=True)
-                                
-                                # Ground Truth
-                                st.markdown("**Ground Truth**")
-                                gt_img = img.copy()
-                                if show_mask:
-                                    mask_img = visualize_bones_from_rle(
-                                        np.zeros_like(img),
-                                        gt_img_data,
-                                        selected_bones,
-                                        show_labels=False,
-                                        thickness=cv2.FILLED
-                                    )
-                                    gt_img = cv2.addWeighted(gt_img, 1, mask_img, mask_opacity, 0)
-                                
-                                if show_contours:
-                                    gt_img = visualize_bones_from_rle(
-                                        gt_img,
-                                        gt_img_data,
-                                        selected_bones,
-                                        show_labels=show_labels,
-                                        thickness=line_thickness
-                                    )
-                                
-                                # 수정된 이미지가 있을 때만 표시
-                                if show_mask or show_contours:
-                                    st.image(gt_img, use_container_width=True)
+                                if not pred_img_data.empty and not gt_img_data.empty:
+                                    # Ground Truth (파란색 계열)
+                                    gt_color_map = {bone: [0, 0, 255] for bone in known_classes}
+                                    if show_gt:
+                                        comparison_img = visualize_bones_from_rle(
+                                            comparison_img,
+                                            gt_img_data,
+                                            selected_bones,
+                                            show_labels=False,
+                                            thickness=line_thickness,
+                                            color_map=gt_color_map
+                                        )
+                                    
+                                    # Prediction (빨간색 계열)
+                                    pred_color_map = {bone: [255, 0, 0] for bone in known_classes}
+                                    if show_pred:
+                                        comparison_img = visualize_bones_from_rle(
+                                            comparison_img,
+                                            pred_img_data,
+                                            selected_bones,
+                                            show_labels=show_labels,
+                                            thickness=line_thickness,
+                                            color_map=pred_color_map
+                                        )
+                                    
+                                    # 범례 추가 (체크된 항목만 표시)
+                                    legend_html = "<strong>Color Legend:</strong><br>"
+                                    if show_gt:
+                                        legend_html += "- <span style='color:blue'>Blue: Ground Truth</span><br>"
+                                    if show_pred:
+                                        legend_html += "- <span style='color:red'>Red: Prediction</span>"
+                                    
+                                    st.markdown(legend_html, unsafe_allow_html=True)
+                                    
+                                    # 이미지 표시
+                                    st.image(comparison_img, use_container_width=True)
+                                else:
+                                    st.error(f"Empty data for image: {img_name}")
+                            else:
+                                st.error(f"Insufficient matching data for image: {img_name}")
                         else:
                             st.error(f"Failed to load image: {img_file}")
-                else:
-                    st.error(f"Expected 2 images in folder {id_folder}, found {len(img_files)}")
-            else:
-                st.error(f"Folder not found: {folder_path}")
 
 if __name__ == "__main__":
     main()
