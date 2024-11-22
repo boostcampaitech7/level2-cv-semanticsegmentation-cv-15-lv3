@@ -81,22 +81,8 @@ def msssim(img1, img2, window_size=11, size_average=True, normalize=False):
     pow2 = mssim ** weights
     output = torch.prod(pow1[:-1] * pow2[-1])
     return output
-'''
-class MSSSIM(torch.nn.Module):
-    def __init__(self, window_size=11, size_average=True, channel=3):
-        super(MSSSIM, self).__init__()
-        self.window_size = window_size
-        self.size_average = size_average
-        self.channel = channel
-        self.window = create_window(window_size, channel)
 
-    def forward(self, img1, img2):
-        # Ensure the images are normalized
-        img1 = img1 / img1.max() if img1.max() > 1 else img1
-        img2 = img2 / img2.max() if img2.max() > 1 else img2
-        return msssim(img1, img2, window_size=self.window_size, size_average=self.size_average, normalize=True)
-    
-'''
+
 class MSSSIM(torch.nn.Module):
     def __init__(self, window_size=11, size_average=True, channel=3):
         super(MSSSIM, self).__init__()
@@ -156,3 +142,92 @@ class CombinedLoss(nn.Module):
         total_loss = self.alpha * focal  + self.gamma * ms_ssim_loss  + self.beta * iou
         return total_loss
 
+
+class BoundaryFocusedLoss(nn.Module):
+    def __init__(self, boundary_weight=0.4, dice_weight=0.2, focal_weight=0.2, 
+                 ms_ssim_weight=0.1, iou_weight=0.1, smooth=1e-6, channel=3):
+        """
+        Boundary-Focused Loss = 
+        0.4 * Boundary + 0.2 * Dice + 0.2 * Focal + 0.1 * MS-SSIM + 0.1 * IoU
+        """
+        super(BoundaryFocusedLoss, self).__init__()
+        self.boundary_weight = boundary_weight
+        self.dice_weight = dice_weight
+        self.focal_weight = focal_weight
+        self.ms_ssim_weight = ms_ssim_weight
+        self.iou_weight = iou_weight
+        self.smooth = smooth
+        self.ms_ssim = MSSSIM(window_size=7, size_average=True, channel=channel)
+    
+    def enhanced_boundary_loss(self, pred, target):
+        def get_boundary(tensor):
+            B, C, H, W = tensor.shape
+            laplacian_kernel = torch.tensor([
+                [-1, -1, -1],
+                [-1,  8, -1],
+                [-1, -1, -1]
+            ], device=tensor.device).float().view(1, 1, 3, 3)
+            
+            boundaries = []
+            for i in range(C):
+                channel = tensor[:, i:i+1, :, :]
+                boundary = F.conv2d(channel, laplacian_kernel, padding=1)
+                boundaries.append(boundary)
+            
+            return torch.cat(boundaries, dim=1)
+        
+        # 경계 검출
+        pred_boundary = get_boundary(pred)
+        target_boundary = get_boundary(target)
+        
+        # BCE with logits 사용
+        boundary_bce = F.binary_cross_entropy_with_logits(
+            pred_boundary, 
+            target_boundary
+        )
+        
+        # 경계 부근 가중치 맵 (target_boundary는 이미 logits 상태)
+        weight_map = F.max_pool2d(torch.sigmoid(target_boundary), 
+                                 kernel_size=3, stride=1, padding=1)
+        weighted_boundary_loss = (boundary_bce * (1 + 2 * weight_map)).mean()
+        
+        return weighted_boundary_loss
+    
+    def dice_loss(self, pred, target):
+        intersection = (pred * target).sum(dim=(2, 3))
+        union = pred.sum(dim=(2, 3)) + target.sum(dim=(2, 3))
+        dice = (2. * intersection + self.smooth) / (union + self.smooth)
+        return 1 - dice.mean()
+    
+    def focal_loss(self, pred, target, alpha=0.25, gamma=2.0):
+        bce_loss = F.binary_cross_entropy_with_logits(pred, target, reduction='none')
+        pt = torch.exp(-bce_loss)
+        focal_loss = alpha * (1-pt)**gamma * bce_loss
+        return focal_loss.mean()
+    
+    def iou_loss(self, pred, target):
+        intersection = (pred * target).sum(dim=(2, 3))
+        union = pred.sum(dim=(2, 3)) + target.sum(dim=(2, 3)) - intersection
+        iou = (intersection + self.smooth) / (union + self.smooth)
+        return 1 - iou.mean()
+    
+    def forward(self, logits, target):
+        pred = torch.sigmoid(logits)
+        
+        # 각각의 손실 계산
+        boundary_loss = self.enhanced_boundary_loss(pred, target)
+        dice_loss = self.dice_loss(pred, target)
+        focal_loss = self.focal_loss(logits, target)
+        ms_ssim_loss = 1 - self.ms_ssim(pred, target)
+        iou_loss = self.iou_loss(pred, target)
+        
+        # 가중치를 적용한 최종 손실
+        total_loss = (
+            self.boundary_weight * boundary_loss +
+            self.dice_weight * dice_loss +
+            self.focal_weight * focal_loss +
+            self.ms_ssim_weight * ms_ssim_loss +
+            self.iou_weight * iou_loss
+        )
+        
+        return total_loss
