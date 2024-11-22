@@ -24,7 +24,12 @@ class UNet_3Plus_DeepSup(nn.Module):
 
         # ConvNeXt Large Encoder
         self.convnext = convnext_large(pretrained=pretrained).features
-
+        #인코더 1 # H, W /filters[0]
+        # 2 # H/2, W/2 / filters[1]
+        # 3 # H/4, W/4 / filters[2]
+        # 4 # H/8, W/8 / filters[3]
+        # 5 # H/16, W/16 / filters[4]
+        
         ## -------------Encoder--------------
         self.conv1 = nn.Sequential(
             unetConv2(self.in_channels, filters[0], self.is_batchnorm),
