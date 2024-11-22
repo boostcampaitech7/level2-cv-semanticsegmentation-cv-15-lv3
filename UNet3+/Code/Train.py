@@ -1,5 +1,5 @@
 import datetime
-from config import CLASSES, NUM_EPOCHS, VAL_EVERY, SAVED_DIR, MODELNAME
+from config import CLASSES, NUM_EPOCHS, VAL_EVERY, SAVED_DIR, MODELNAME,ACCUMULATION_STEPS
 from Validation import validation
 import os
 import torch
@@ -13,15 +13,19 @@ def save_model(model, file_name=MODELNAME):
     output_path = os.path.join(SAVED_DIR, file_name)
     torch.save(model, output_path)
 
-def train(model, data_loader, val_loader, criterion, optimizer, scheduler):
-    print(f'Start training..')
+def train(model, data_loader, val_loader, criterion, optimizer, scheduler, accumulation_steps=ACCUMULATION_STEPS):
+    """
+    Args:
+        accumulation_steps (int): Number of steps to accumulate gradients before updating.
+    """
+    print(f'Start training with Gradient Accumulation (accumulation_steps={accumulation_steps})..')
     model.cuda()
 
     n_class = len(CLASSES)
     best_dice = 0.0
 
     # 손실 가중치 (Deep Supervision)
-    deep_sup_weights = [0.5, 0.35, 0.25, 0.2, 0.15]  # 각 출력에 대한 가중치
+    deep_sup_weights = [0.5, 0.3, 0.2, 0.15, 0.1]  # 각 출력에 대한 가중치
 
     # Mixed Precision Scaler 생성
     scaler = GradScaler()
@@ -33,12 +37,14 @@ def train(model, data_loader, val_loader, criterion, optimizer, scheduler):
 
         model.train()
 
+        # Gradient Accumulation Step 초기화
+        optimizer.zero_grad()
+
         for step, (images, masks) in enumerate(data_loader):
             # GPU 연산을 위해 device 할당
             images, masks = images.cuda(), masks.cuda()
 
             # Inference 및 Mixed Precision 적용
-            optimizer.zero_grad()
             with autocast():  # Mixed Precision 모드
                 outputs = model(images)
 
@@ -51,10 +57,14 @@ def train(model, data_loader, val_loader, criterion, optimizer, scheduler):
                 else:  # 출력이 단일 텐서인 경우 (예외 처리)
                     total_loss = criterion(outputs, masks)
 
-            # Backpropagation with Scaler
+            # Loss Scaling 및 Backpropagation (Gradient Accumulation)
             scaler.scale(total_loss).backward()
-            scaler.step(optimizer)
-            scaler.update()
+
+            # Gradient Accumulation Steps 마다 업데이트
+            if (step + 1) % accumulation_steps == 0:
+                scaler.step(optimizer)  # Optimizer Step
+                scaler.update()  # Scaler 업데이트
+                optimizer.zero_grad()  # Gradient 초기화
 
             # Step 주기에 따른 손실 출력
             if (step + 1) % 80 == 0:
@@ -64,6 +74,12 @@ def train(model, data_loader, val_loader, criterion, optimizer, scheduler):
                     f'Step [{step+1}/{len(data_loader)}], '
                     f'Loss: {round(total_loss.item(), 4)}'
                 )
+
+        # 마지막 미니배치 처리 후 Gradient 업데이트
+        if (step + 1) % accumulation_steps != 0:
+            scaler.step(optimizer)
+            scaler.update()
+            optimizer.zero_grad()
 
         # Validation 주기에 따른 Loss 출력 및 Best Model 저장
         if (epoch + 1) % VAL_EVERY == 0:

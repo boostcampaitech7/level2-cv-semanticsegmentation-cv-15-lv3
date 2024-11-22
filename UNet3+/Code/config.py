@@ -44,6 +44,7 @@ RANDOM_SEED = 21
 NUM_EPOCHS =52
 VAL_EVERY = 1
 
+ACCUMULATION_STEPS=32
 BATCH_SIZE = 1
 IMSIZE=480
 
@@ -53,15 +54,15 @@ GAMMA=0.2
 
 
 SAVED_DIR = "/data/ephemeral/home/MCG/UNetRefactored/Creadted_model/"
-MODELNAME="othersCrop_AddBottleNeck_ConvTrans_52.pt"
+MODELNAME="othersCrop_AddBottleNeck_ConvTrans_dice_52.pt"
 if not os.path.isdir(SAVED_DIR):
     os.mkdir(SAVED_DIR)
     
 
 
-INFERENCE_MODEL_NAME="othersCrop_AddBottleNeck_ConvTrans_52.pt"
+INFERENCE_MODEL_NAME="othersCrop_AddBottleNeck_ConvTrans_dice_52.pt"
 
 TEST_IMAGE_ROOT="/data/ephemeral/home/MCG/data/test/DCM"
 
 CSVDIR="/data/ephemeral/home/MCG/UNetRefactored/CSV"
-CSVNAME="othersCrop_AddBottleNeck_ConvTrans_52.csv"
+CSVNAME="othersCrop_AddBottleNeck_ConvTrans_dice_52.csv"

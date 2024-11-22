@@ -81,7 +81,7 @@ def msssim(img1, img2, window_size=11, size_average=True, normalize=False):
     pow2 = mssim ** weights
     output = torch.prod(pow1[:-1] * pow2[-1])
     return output
-
+'''
 class MSSSIM(torch.nn.Module):
     def __init__(self, window_size=11, size_average=True, channel=3):
         super(MSSSIM, self).__init__()
@@ -96,8 +96,8 @@ class MSSSIM(torch.nn.Module):
         img2 = img2 / img2.max() if img2.max() > 1 else img2
         return msssim(img1, img2, window_size=self.window_size, size_average=self.size_average, normalize=True)
     
-
-'''class MSSSIM(torch.nn.Module):
+'''
+class MSSSIM(torch.nn.Module):
     def __init__(self, window_size=11, size_average=True, channel=3):
         super(MSSSIM, self).__init__()
         self.window_size = window_size
@@ -106,7 +106,7 @@ class MSSSIM(torch.nn.Module):
 
     def forward(self, img1, img2):
         return msssim(img1, img2, window_size=self.window_size, size_average=self.size_average, normalize=True)
-'''
+
 
 
 
@@ -123,7 +123,7 @@ class CombinedLoss(nn.Module):
         self.smooth = smooth
         self.ms_ssim = MSSSIM(window_size=7, size_average=True, channel=channel)
 
-    def focal_loss(self, logits, targets, alpha=0.75, gamma=2.3):
+    def focal_loss(self, logits, targets, alpha=0.8, gamma=2):
         probs = torch.sigmoid(logits)
         focal_loss = -alpha * (1 - probs) ** gamma * targets * torch.log(probs + 1e-6) \
                      - (1 - alpha) * probs ** gamma * (1 - targets) * torch.log(1 - probs + 1e-6)
@@ -150,11 +150,11 @@ class CombinedLoss(nn.Module):
     def forward(self, logits, targets):
         # Calculate individual losses
         focal = self.focal_loss(logits, targets)
-        iou = self.iou_loss(logits, targets)
+        #iou = self.iou_loss(logits, targets)
         ms_ssim_loss = 1 - self.ms_ssim(torch.sigmoid(logits), targets)
-        #dice = self.dice_loss(logits, targets)
+        dice = self.dice_loss(logits, targets)
 
         # Combine losses with respective weights
-        total_loss = self.alpha * focal  + self.gamma * ms_ssim_loss  + self.beta * iou #+ self.delta * dice
+        total_loss = self.alpha * focal  + self.gamma * ms_ssim_loss  + self.delta * dice #self.beta * iou #+ self.delta * dice
         return total_loss
 
