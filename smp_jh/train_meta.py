@@ -13,7 +13,7 @@ from torch.cuda.amp import autocast, GradScaler
 from tqdm.auto import tqdm
 from datetime import timedelta
 from config.config import Config
-from dataset.dataset import XRayDataset
+from dataset.dataset import XRayDataset, StratifiedXRayDataset
 from models.model import get_model
 from utils.metrics import dice_coef
 from dataset.transforms import Transforms
@@ -149,19 +149,39 @@ def train():
     )
     
     # 데이터셋 준비
-    train_dataset = XRayDataset(
+    # train_dataset = XRayDataset(
+    #     image_root=Config.TRAIN_IMAGE_ROOT,
+    #     label_root=Config.TRAIN_LABEL_ROOT,
+    #     is_train=True,
+    #     transforms=Transforms.get_train_transform()
+    # )
+    
+    # valid_dataset = XRayDataset(
+    #     image_root=Config.TRAIN_IMAGE_ROOT,
+    #     label_root=Config.TRAIN_LABEL_ROOT,
+    #     is_train=False,
+    #     transforms=Transforms.get_valid_transform()
+    # )
+    train_dataset = StratifiedXRayDataset(
         image_root=Config.TRAIN_IMAGE_ROOT,
         label_root=Config.TRAIN_LABEL_ROOT,
         is_train=True,
-        transforms=Transforms.get_train_transform()
+        transforms=Transforms.get_train_transform(),
+        meta_path=Config.META_PATH  # config에 META_PATH 추가 필요
     )
     
-    valid_dataset = XRayDataset(
+    valid_dataset = StratifiedXRayDataset(
         image_root=Config.TRAIN_IMAGE_ROOT,
         label_root=Config.TRAIN_LABEL_ROOT,
         is_train=False,
-        transforms=Transforms.get_valid_transform()
+        transforms=Transforms.get_valid_transform(),
+        meta_path=Config.META_PATH
     )
+
+    # 데이터셋 통계 출력 (콘솔)
+    print("\nDataset Statistics:")
+    train_dataset.print_dataset_stats()
+    valid_dataset.print_dataset_stats()
     
     # DataLoader
     train_loader = DataLoader(
@@ -242,7 +262,7 @@ def train():
                 epoch + 1, model, valid_loader, criterion, device, threshold=0.5
             )
 
-            # Scheduler step 추가
+            # # Scheduler step 추가
             # if Config.SCHEDULER_TYPE == "reduce":
             #     scheduler.step(dice)  # ReduceLROnPlateau는 metric을 전달
             # else:
