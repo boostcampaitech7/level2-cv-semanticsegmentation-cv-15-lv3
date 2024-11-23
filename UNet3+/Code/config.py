@@ -45,24 +45,24 @@ NUM_EPOCHS =75
 VAL_EVERY = 1
 
 ACCUMULATION_STEPS=16
-BATCH_SIZE = 1
+BATCH_SIZE = 2
 IMSIZE=480
 
-LR = 0.0008
+LR = 0.0004
 MILESTONES=[5,20,32,40,47]
 GAMMA=0.3
 
 
 SAVED_DIR = "/data/ephemeral/home/MCG/UNetRefactored/Creadted_model/"
-MODELNAME="CropOthersChangeLoss.pt"
+MODELNAME="CropOthers_ResNet152_Hybrid.pt"
 if not os.path.isdir(SAVED_DIR):
     os.mkdir(SAVED_DIR)
     
 
 
-INFERENCE_MODEL_NAME="CropOthersChangeLoss.pt"
+INFERENCE_MODEL_NAME="CropOthers_ResNet152_Hybrid.pt"
 
 TEST_IMAGE_ROOT="/data/ephemeral/home/MCG/data/test/DCM"
 
 CSVDIR="/data/ephemeral/home/MCG/UNetRefactored/CSV"
-CSVNAME="CropOthersChangeLoss.csv"
+CSVNAME="CropOthers_ResNet152_Hybrid.csv"
