@@ -7,12 +7,12 @@ class Config:
     TEST_IMAGE_ROOT = "../data/test/DCM"
     
     # Model
-    MODEL_ARCHITECTURE = 'DeepLabV3Plus' # [Unet, UnetPlusPlus, FPN, PSPNet, DeepLabV3, DeepLabV3Plus, LinkNet, MAnet, PAN, UPerNet]
-    ENCODER_NAME = 'tu-xception71' # encoder 이름 Timm encoder 사용시 이름 앞에 tu- 붙임
+    MODEL_ARCHITECTURE = 'UnetPlusPlus' # [Unet, UnetPlusPlus, FPN, PSPNet, DeepLabV3, DeepLabV3Plus, LinkNet, MAnet, PAN, UPerNet]
+    ENCODER_NAME = 'tu-hrnet_w64' # encoder 이름 Timm encoder 사용시 이름 앞에 tu- 붙임
     ENCODER_WEIGHTS = 'imagenet' # pretrained weights
 
     TRAIN_BATCH_SIZE = 2
-    VAL_BATCH_SIZE = 4
+    VAL_BATCH_SIZE = 2
     LEARNING_RATE = 1e-4
     NUM_EPOCHS = 100
     VAL_EVERY = 1
@@ -23,7 +23,7 @@ class Config:
 
     # Scheduler
     # train.py 에서 주석을 풀어야 사용 가능 아직 적용 x
-    SCHEDULER_TYPE = "step" # [ "reduce", "step", "cosine" ]
+    SCHEDULER_TYPE = "reduce" # [ "reduce", "step", "cosine" ]
     MIN_LR = 1e-6
     
     WANDB = {
