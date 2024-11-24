@@ -132,3 +132,14 @@ wandb/
 
 # wandb
 wandb/
+
+# mmsegmentation
+configs/
+demo/
+docker/
+docs/
+mmseg/
+projects/
+resources/
+tests/
+tools/
