@@ -266,16 +266,6 @@ def train():
                     "Best Dice Score": dice,
                     "Best Model Epoch": epoch + 1
                 }, step=global_step)
-
-            # Scheduler step 로깅
-            # if scheduler is not None:
-            #     if Config.SCHEDULER_TYPE == "reduce":
-            #         scheduler.step(dice)
-            #     else:
-            #         scheduler.step()
-            #     wandb.log({
-            #         "Learning Rate": optimizer.param_groups[0]['lr']
-            #     }, step=epoch)
     
     wandb.finish()
 

@@ -5,6 +5,7 @@ class Config:
     TRAIN_IMAGE_ROOT = "../data/train/DCM"
     TRAIN_LABEL_ROOT = "../data/train/outputs_json"
     TEST_IMAGE_ROOT = "../data/test/DCM"
+    META_PATH = "../data/meta_data.xlsx"
     
     # Model
     MODEL_ARCHITECTURE = 'UnetPlusPlus' # [Unet, UnetPlusPlus, FPN, PSPNet, DeepLabV3, DeepLabV3Plus, LinkNet, MAnet, PAN, UPerNet]
