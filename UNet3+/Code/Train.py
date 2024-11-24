@@ -39,29 +39,28 @@ def train(model, data_loader, val_loader, criterion, optimizer, scheduler, accum
 
             # Mixed Precision 제거
             outputs = model(images)  # 모델 출력 (d1, d2, d3, d4, d5)
-            weights = [0.5, 0.35, 0.2, 0.15, 0.1]  # 가중치 설정
-
+            
             loss = 0
             focal, iou, dice,msssim = 0, 0, 0,0
 
-            for i, output in enumerate(outputs):  # Deep Supervision 출력별 손실 계산
-                batch_loss, batch_focal, batch_iou, batch_dice, batch_msssim = criterion(output, masks)
-                # 각 배치별 손실을 출력
+            #for i, output in enumerate(outputs):  # Deep Supervision 출력별 손실 계산
+            batch_loss, batch_focal, batch_iou, batch_dice, batch_msssim = criterion(outputs, masks)
+            # 각 배치별 손실을 출력
 
-                weighted_loss = weights[i] * batch_loss
-                loss += weighted_loss
+            weighted_loss = batch_loss
+            loss += weighted_loss
 
-                # 개별 손실 성분 계산
-                focal += weights[i] * batch_focal
-                msssim += weights[i] * batch_msssim
-                iou += weights[i] * batch_iou
-                dice += weights[i] * batch_dice
+            # 개별 손실 성분 계산
+            focal = batch_focal
+            msssim = batch_msssim
+            iou =  batch_iou
+            dice =  batch_dice
 
             # Backpropagation
             loss.backward()
             print_loss=loss.item()
 
-            if (step + 1) % accumulation_steps == 0:
+            if (step + 1) % accumulation_steps == 0 or (step + 1) == len(data_loader):
                 optimizer.step()
                 optimizer.zero_grad()
 
@@ -77,16 +76,13 @@ def train(model, data_loader, val_loader, criterion, optimizer, scheduler, accum
                     f'Dice: {round(dice.item(), 4)}'
                 )
 
-        # 마지막 미니배치 처리 후 Gradient 업데이트
-        if (step + 1) % accumulation_steps != 0:
-            optimizer.step()
-            optimizer.zero_grad()
+
 
         # Validation 주기에 따른 Loss 출력 및 Best Model 저장
         if (epoch + 1) % VAL_EVERY == 0:
             dice = validation(epoch + 1, model, val_loader, criterion)
 
-            # Validation 결과에 따른 손실 함수 선택
+            '''# Validation 결과에 따른 손실 함수 선택
             if dice < threshold:
                 print(f"Validation Dice ({dice:.4f}) < Threshold ({threshold}), using IoU Loss.")
                 criterion.dice_weight = 0  # Dice Loss 비활성화
@@ -94,7 +90,7 @@ def train(model, data_loader, val_loader, criterion, optimizer, scheduler, accum
             else:
                 print(f"Validation Dice ({dice:.4f}) >= Threshold ({threshold}), using Dice Loss.")
                 criterion.dice_weight = 1  # Dice Loss 활성화
-                criterion.iou_weight = 0   # IoU Loss 비활성화
+                criterion.iou_weight = 0   # IoU Loss 비활성화'''
 
             if best_dice < dice:
                 print(f"Best performance at epoch: {epoch + 1}, {best_dice:.4f} -> {dice:.4f}")

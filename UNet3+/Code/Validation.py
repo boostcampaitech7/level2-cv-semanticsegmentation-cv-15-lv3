@@ -38,7 +38,7 @@ def validation(epoch, model, data_loader, criterion, thr=0.5):
             total_msssim += batch_msssim.item()
 
             num_samples += 1
-
+            outputs = torch.sigmoid(outputs)
             # Dice 계산
             outputs = (outputs > thr).float()
             dice = dice_coef(outputs, masks)

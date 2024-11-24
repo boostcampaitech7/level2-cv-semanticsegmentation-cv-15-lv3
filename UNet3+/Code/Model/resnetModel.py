@@ -35,9 +35,9 @@ class UNet_3Plus_DeepSup(nn.Module):
             nn.Conv2d(
                 in_channels,
                 64,
-                kernel_size=3,  # Smaller kernel size
+                kernel_size=7,  # Larger kernel size
                 stride=1,       # Maintain spatial dimensions
-                padding=1,      # Add padding to keep the size
+                padding=3,      # Ensure input and output sizes match
                 bias=False
             ),
             nn.BatchNorm2d(64),
@@ -214,7 +214,7 @@ class UNet_3Plus_DeepSup(nn.Module):
         self.outconv5 = nn.Conv2d(filters[4], n_classes, 3, padding=1)
         
         self.cls = nn.Sequential(
-            nn.Dropout(p=0.2),               # Dropout으로 오버피팅 방지
+            nn.Dropout(p=0.4),               # Dropout으로 오버피팅 방지
             nn.Conv2d(filters[4], n_classes, 1),  # 클래스 수 반영
             nn.AdaptiveMaxPool2d(1),         # 클래스별 전역 정보 추출
             nn.Sigmoid()                     # 멀티라벨 환경에서 클래스 존재 확률 출력
@@ -234,7 +234,7 @@ class UNet_3Plus_DeepSup(nn.Module):
                 init_weights(module, init_type='kaiming')
 
 
-        self._initialize_conv1_with_resnet()
+        #self._initialize_conv1_with_resnet()
 
     def _initialize_conv1_with_resnet(self):
         """Initialize self.conv1 with resampled weights from ResNet conv1."""
@@ -285,10 +285,7 @@ class UNet_3Plus_DeepSup(nn.Module):
 
         # -------------Classification-------------
         cls_branch = self.cls(hd5).squeeze(3).squeeze(2)  # (B, N, 1, 1) -> (B, N)
-        threshold = 0.5
-        cls_branch_mask = (cls_branch > threshold).float()  # (B, N), 각 클래스 존재 여부
 
-        
         ## -------------Decoder-------------
         h1_PT_hd4 = self.h1_PT_hd4_relu(self.h1_PT_hd4_bn(self.h1_PT_hd4_conv(self.h1_PT_hd4(h1))))
         h2_PT_hd4 = self.h2_PT_hd4_relu(self.h2_PT_hd4_bn(self.h2_PT_hd4_conv(self.h2_PT_hd4(h2))))
@@ -337,17 +334,27 @@ class UNet_3Plus_DeepSup(nn.Module):
         d2 = self.upscore2(d2) # 128->256
 
         d1 = self.outconv1(hd1) # 256
-        '''
-        d1 = self.dotProduct(d1, cls_branch_mask)
-        d2 = self.dotProduct(d2, cls_branch_mask)
-        d3 = self.dotProduct(d3, cls_branch_mask)
-        d4 = self.dotProduct(d4, cls_branch_mask)
-        d5 = self.dotProduct(d5, cls_branch_mask)
         
-        '''
+        d1 = self.dotProduct(d1, cls_branch)
+        d2 = self.dotProduct(d2, cls_branch)
+        d3 = self.dotProduct(d3, cls_branch)
+        d4 = self.dotProduct(d4, cls_branch)
+        d5 = self.dotProduct(d5, cls_branch)
         
-        if self.training:
+        # 가중치 적용
+        weights = [0.4, 0.25, 0.15, 0.12, 0.08]  # 가중치
+        final_output = (
+            weights[0] * d1 + 
+            weights[1] * d2 + 
+            weights[2] * d3 + 
+            weights[3] * d4 + 
+            weights[4] * d5
+        )
+
+        return final_output
+        
+        '''if self.training:
             return d1, d2, d3, d4, d5
         else:
             #print(d1)
-            return d1
+            return d1'''
