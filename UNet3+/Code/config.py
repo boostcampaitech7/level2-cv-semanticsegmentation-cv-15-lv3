@@ -12,16 +12,16 @@ VISUALIZE_TRAIN_DATA=False
 IMAGE_ROOT = "/data/ephemeral/home/MCG/data/train/DCM"
 LABEL_ROOT = "/data/ephemeral/home/MCG/data/train/outputs_json"
 
-'''
-CLASSES = [
+
+'''CLASSES = [
     'finger-1', 'finger-2', 'finger-3', 'finger-4', 'finger-5',
     'finger-6', 'finger-7', 'finger-8', 'finger-9', 'finger-10',
     'finger-11', 'finger-12', 'finger-13', 'finger-14', 'finger-15',
     'finger-16', 'finger-17', 'finger-18', 'finger-19', 'Trapezium',
     'Trapezoid', 'Capitate', 'Hamate', 'Scaphoid', 'Lunate',
     'Triquetrum', 'Pisiform', 'Radius', 'Ulna',
-]
-'''
+]'''
+
 
 CLASSES = [
     'Trapezium',
@@ -41,28 +41,28 @@ YOLO_SELECT_CLASS="others"
 RANDOM_SEED = 21
 
 # 적절하게 조절
-NUM_EPOCHS =55
+NUM_EPOCHS =30
 VAL_EVERY = 1
 
-ACCUMULATION_STEPS=16
-BATCH_SIZE = 2
+ACCUMULATION_STEPS=32
+BATCH_SIZE = 1
 IMSIZE=480
 
-LR = 0.0004
+LR = 0.0003
 MILESTONES=[5,20,32,40,47]
 GAMMA=0.3
 
 
 SAVED_DIR = "/data/ephemeral/home/MCG/UNetRefactored/Creadted_model/"
-MODELNAME="CropOthers_ResNet152_Hybrid.pt"
+MODELNAME="CropHRNet480.pt"
 if not os.path.isdir(SAVED_DIR):
     os.mkdir(SAVED_DIR)
     
 
 
-INFERENCE_MODEL_NAME="CropOthers_ResNet152_Hybrid.pt"
+INFERENCE_MODEL_NAME="CropHRNet480.pt"
 
 TEST_IMAGE_ROOT="/data/ephemeral/home/MCG/data/test/DCM"
 
 CSVDIR="/data/ephemeral/home/MCG/UNetRefactored/CSV"
-CSVNAME="CropOthers_ResNet152_Hybrid.csv"
+CSVNAME="CropHRNet480.csv"

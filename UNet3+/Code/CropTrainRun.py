@@ -8,7 +8,7 @@ import torch
 import torch.optim as optim
 from torch.utils.data import DataLoader
 
-from Model.resnetModel import UNet_3Plus_DeepSup
+from Model.HRnetModel import UNet3PlusHRNet
 from DataSet.DataLoder import get_image_label_paths
 from config import IMAGE_ROOT, LABEL_ROOT, BATCH_SIZE, IMSIZE, CLASSES, MILESTONES, GAMMA, LR, SAVED_DIR, VISUALIZE_TRAIN_DATA, SAVE_VISUALIZE_TRAIN_DATA_PATH,NUM_EPOCHS
 from DataSet.LabelBaseCropDataset import XRayDataset
@@ -31,7 +31,7 @@ def main():
     # 폴더 이름을 그룹으로 해서 GroupKFold를 수행합니다.
     # 동일 인물의 손이 train, valid에 따로 들어가는 것을 방지합니다.
     groups = [os.path.dirname(fname) for fname in pngs]
-    groups = shuffle(groups, random_state=21)  
+    #groups = shuffle(groups, random_state=21)  
     # dummy label
     ys = [0 for fname in pngs]
 
@@ -86,10 +86,10 @@ def main():
         drop_last=False,
     )
 
-    model = UNet_3Plus_DeepSup(n_classes=len(CLASSES))
+    model = UNet3PlusHRNet(n_classes=len(CLASSES))
 
     # Loss function 정의
-    criterion = CombinedLoss(focal_weight=1, iou_weight=1, ms_ssim_weight=1, dice_weight=0)
+    criterion = CombinedLoss(focal_weight=1.5, iou_weight=1, ms_ssim_weight=1, dice_weight=0)
 
     # Optimizer 정의
     optimizer = optim.AdamW(params=model.parameters(), lr=LR, weight_decay=3e-4)
