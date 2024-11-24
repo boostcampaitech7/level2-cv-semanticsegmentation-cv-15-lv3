@@ -59,7 +59,7 @@ def main():
         train_filenames,
         train_labelnames,
         is_train=True,
-        save_dir=None,
+        save_dir=SAVE_VISUALIZE_TRAIN_DATA_PATH,
         draw_enabled=False,
     )
     valid_dataset = XRayDataset(
@@ -67,7 +67,7 @@ def main():
         valid_labelnames,
         is_train=False,
         save_dir=SAVE_VISUALIZE_TRAIN_DATA_PATH,
-        draw_enabled=VISUALIZE_TRAIN_DATA,
+        draw_enabled=False,
     )
 
     train_loader = DataLoader(

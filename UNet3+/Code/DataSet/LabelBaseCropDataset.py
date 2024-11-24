@@ -5,7 +5,7 @@ import json
 import torch
 from config import CLASS2IND, CLASSES, IMAGE_ROOT, LABEL_ROOT,IMSIZE
 from Util.SetSeed import set_seed
-
+import random
 set_seed()
 
 from torch.utils.data import Dataset
@@ -94,6 +94,11 @@ class XRayDataset(Dataset):
         # 중심점 계산
         center_x = (min_x + max_x) / 2
         center_y = (min_y + max_y) / 2
+        random_offset_x = random.randint(-20, 20)
+        random_offset_y = random.randint(-20, 20)
+
+        center_x = center_x + random_offset_x
+        center_y = center_y + random_offset_y
 
         # 크롭 영역 계산
         half_size = crop_size / 2
