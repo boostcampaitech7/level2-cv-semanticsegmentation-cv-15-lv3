@@ -1,81 +1,24 @@
 import albumentations as A
-from torch.utils.data import DataLoader,Dataset
-from config import IND2CLASS,SAVED_DIR, INFERENCE_MODEL_NAME, IMSIZE, CSVDIR,CSVNAME,CLASSES,TEST_IMAGE_ROOT
+from torch.utils.data import DataLoader, Dataset
+from config import IND2CLASS, SAVED_DIR, INFERENCE_MODEL_NAME, IMSIZE, CSVDIR, CSVNAME, CLASSES, TEST_IMAGE_ROOT, SAVE_VISUALIZE_TRAIN_DATA_PATH
 import os
 import torch
 import pandas as pd
 import numpy as np
 import cv2
 from tqdm.auto import tqdm
-
-from DataSet.YoloBaseCropDataset import XRayDataset
-
-model = torch.load(os.path.join(SAVED_DIR, INFERENCE_MODEL_NAME))
-
-pngs = {
-    os.path.relpath(os.path.join(root, fname), start=TEST_IMAGE_ROOT)
-    for root, _dirs, files in os.walk(TEST_IMAGE_ROOT)
-    for fname in files
-    if os.path.splitext(fname)[1].lower() == ".png"
-}
+from ultralytics import YOLO
+from DataSet.YoloInferenceDataset import XRayInferenceDataset
+import torch.nn.functional as F
+import torch.multiprocessing as mp
 
 def encode_mask_to_rle(mask):
-    '''
-    mask: numpy array binary mask
-    1 - mask
-    0 - background
-    Returns encoded run length
-    '''
     pixels = mask.flatten()
     pixels = np.concatenate([[0], pixels, [0]])
     runs = np.where(pixels[1:] != pixels[:-1])[0] + 1
     runs[1::2] -= runs[::2]
     return ' '.join(str(x) for x in runs)
 
-
-def decode_rle_to_mask(rle, height, width):
-    s = rle.split()
-    starts, lengths = [np.asarray(x, dtype=int) for x in (s[0:][::2], s[1:][::2])]
-    starts -= 1
-    ends = starts + lengths
-    img = np.zeros(height * width, dtype=np.uint8)
-
-    for lo, hi in zip(starts, ends):
-        img[lo:hi] = 1
-
-    return img.reshape(height, width)
-
-class XRayInferenceDataset(Dataset):
-    def __init__(self, transforms=None):
-        _filenames = pngs
-        _filenames = np.array(sorted(_filenames))
-
-        self.filenames = _filenames
-        self.transforms = transforms
-
-    def __len__(self):
-        return len(self.filenames)
-
-    def __getitem__(self, item):
-        image_name = self.filenames[item]
-        image_path = os.path.join(TEST_IMAGE_ROOT, image_name)
-
-        image = cv2.imread(image_path)
-        image = image / 255.
-
-        if self.transforms is not None:
-            inputs = {"image": image}
-            result = self.transforms(**inputs)
-            image = result["image"]
-
-        # to tenser will be done later
-        image = image.transpose(2, 0, 1)    # make channel first
-
-        image = torch.from_numpy(image).float()
-
-        return image, image_name
-
-import torch.nn.functional as F
 def test(model, data_loader, thr=0.5):
     model = model.cuda()
     model.eval()
@@ -83,46 +26,80 @@ def test(model, data_loader, thr=0.5):
     rles = []
     filename_and_class = []
     with torch.no_grad():
-        n_class = len(CLASSES)
-
-        for step, (images, image_names) in tqdm(enumerate(data_loader), total=len(data_loader)):
+        for step, (images, image_names, crop_boxes) in tqdm(enumerate(data_loader), total=len(data_loader)):
             images = images.cuda()
             outputs = model(images)
 
-            # restore original size
-            outputs = F.interpolate(outputs, size=(2048, 2048), mode="bilinear")
-            outputs = (outputs > thr).detach().cpu().numpy()
+            for output, image_name, crop_box in zip(outputs, image_names, crop_boxes):
+                print(crop_box)
+                start_x, start_y, end_x, end_y = crop_box
+                crop_width = end_x - start_x
+                crop_height = end_y - start_y
 
-            for output, image_name in zip(outputs, image_names):
+                # Interpolate to crop size
+                output = F.interpolate(output.unsqueeze(0), size=(crop_height, crop_width), mode="nearest")
+                output = (output > thr).squeeze(0).detach().cpu().numpy()
+
                 for c, segm in enumerate(output):
-                    rle = encode_mask_to_rle(segm)
+                    full_size_mask = np.zeros((2048, 2048), dtype=np.uint8)
+                    full_size_mask[start_y:end_y, start_x:end_x] = segm
+                    rle = encode_mask_to_rle(full_size_mask)
                     rles.append(rle)
                     filename_and_class.append(f"{IND2CLASS[c]}_{image_name}")
 
     return rles, filename_and_class
 
+if __name__ == "__main__":
+    mp.set_start_method("spawn", force=True)  # CUDA 문제 해결을 위한 spawn 방식 설정
 
-tf = A.Resize(IMSIZE, IMSIZE)
-test_dataset = XRayInferenceDataset(transforms=tf)
+    # 모델 로드
+    model = torch.load(os.path.join(SAVED_DIR, INFERENCE_MODEL_NAME))
+    yolo_model = YOLO("/data/ephemeral/home/MCG/YOLO_Detection_Model/best.pt") # YOLO 모델을 GPU로 이동
 
-test_loader = DataLoader(
-    dataset=test_dataset,
-    batch_size=2,
-    shuffle=False,
-    num_workers=2,
-    drop_last=False
-)
+    # PNG 파일 가져오기
+    pngs = {
+        os.path.relpath(os.path.join(root, fname), start=TEST_IMAGE_ROOT)
+        for root, _dirs, files in os.walk(TEST_IMAGE_ROOT)
+        for fname in files
+        if os.path.splitext(fname)[1].lower() == ".png"
+    }
 
-rles, filename_and_class = test(model, test_loader)
+    # 데이터셋 생성
+    test_dataset = XRayInferenceDataset(
+        filenames=pngs,
+        yolo_model=yolo_model,  # YOLO 모델 전달
+        save_dir=SAVE_VISUALIZE_TRAIN_DATA_PATH,
+        draw_enabled=True
+    )
+    def custom_collate_fn(batch):
+        images, image_names, crop_boxes = zip(*batch)
+        return (
+            torch.stack(images),  # 이미지 텐서 병합
+            list(image_names),    # 파일명 리스트 유지
+            list(crop_boxes)      # crop_box 리스트 유지
+        )
+    
+    # 데이터 로더 생성
+    test_loader = DataLoader(
+        dataset=test_dataset,
+        batch_size=2,
+        shuffle=False,
+        num_workers=0,  # 멀티프로세싱 비활성화
+        drop_last=False,
+        collate_fn=custom_collate_fn
+    )
 
-classes, filename = zip(*[x.split("_") for x in filename_and_class])
+    # 테스트 수행
+    rles, filename_and_class = test(model, test_loader)
 
-image_name = [os.path.basename(f) for f in filename]
+    # 결과 저장
+    classes, filename = zip(*[x.split("_") for x in filename_and_class])
+    image_name = [os.path.basename(f) for f in filename]
 
-df = pd.DataFrame({
-    "image_name": image_name,
-    "class": classes,
-    "rle": rles,
-})
+    df = pd.DataFrame({
+        "image_name": image_name,
+        "class": classes,
+        "rle": rles,
+    })
 
-df.to_csv(os.path.join(CSVDIR, CSVNAME),index=False)
+    df.to_csv(os.path.join(CSVDIR, CSVNAME), index=False)
