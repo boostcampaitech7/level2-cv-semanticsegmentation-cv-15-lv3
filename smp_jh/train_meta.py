@@ -203,8 +203,11 @@ def train():
     )
     
     # Training loop
+    patience = 10 # 조기 종료 횟수
+    counter = 0 # 조기 종료 카운터
     best_dice = 0.
     global_step = 0  # 전역 step 카운터 추가
+
     for epoch in range(Config.NUM_EPOCHS):
         epoch_start = time.time()
         model.train()
@@ -275,17 +278,32 @@ def train():
                 **dice_dict,
             }, step=global_step)
 
+            # Best model 저장 및 Early Stopping 체크
             if best_dice < dice:
                 print(f"Best performance at epoch: {epoch + 1}, {best_dice:.4f} -> {dice:.4f}")
                 print(f"Save model in {Config.SAVED_DIR}")
                 best_dice = dice
                 torch.save(model, os.path.join(Config.SAVED_DIR, "best_model.pt"))
-
+                
                 # Best 모델 정보 로깅
                 wandb.log({
                     "Best Dice Score": dice,
                     "Best Model Epoch": epoch + 1
                 }, step=global_step)
+                
+                # Best Dice가 갱신되면 카운터 초기화
+                counter = 0
+            else:
+                counter += 1
+                print(f"Early Stopping counter: {counter} out of {patience}")
+                
+                if counter >= patience:
+                    print(f"Early Stopping triggered! Best dice: {best_dice:.4f}")
+                    wandb.log({
+                        "Early Stopping": epoch + 1,
+                        "Final Best Dice": best_dice
+                    }, step=global_step)
+                    break
     
     wandb.finish()
 
