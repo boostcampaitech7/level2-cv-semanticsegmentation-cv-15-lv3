@@ -101,7 +101,7 @@ class HRNetEncoder_NOReduce(nn.Module): #1/4안줄이고 시작.
         y_list = self.hrnet.stage4(x_list)
         h1, h2, h3, h4=y_list
         #h4 = self._merge_multi_scale(y_list)  # Merge outputs for this stage
-        print(h1.shape,h2.shape,h3.shape,h4.shape)
+        #print(h1.shape,h2.shape,h3.shape,h4.shape)
         return h1, h2, h3, h4
 
     def _merge_multi_scale(self, features):
