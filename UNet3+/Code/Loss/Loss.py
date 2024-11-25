@@ -142,7 +142,7 @@ class MS_SSIM_Loss(nn.Module):
 
 
 class CombinedLoss(nn.Module):
-    def __init__(self, focal_weight=1, iou_weight=1, ms_ssim_weight=1, dice_weight=1, gdl_weight=0, smooth=1e-6, channel=3):
+    def __init__(self, focal_weight=1, iou_weight=1, ms_ssim_weight=1, dice_weight=1, gdl_weight=0, smooth=1e-6, boundary_weight=0,channel=3):
         super(CombinedLoss, self).__init__()
         self.focal_weight = focal_weight
         self.iou_weight = iou_weight
@@ -150,6 +150,7 @@ class CombinedLoss(nn.Module):
         self.dice_weight = dice_weight
         self.gdl_weight = gdl_weight
         self.smooth = smooth
+        self.boundary_weight = boundary_weight
         self.ms_ssim = MS_SSIM_Loss()
         self.bce_loss_fn = nn.BCEWithLogitsLoss(reduction='mean')  # BCE loss with logits
 
@@ -233,6 +234,8 @@ class CombinedLoss(nn.Module):
         #bce=self.bce_loss_fn(logits, targets)
         #gdl = self.gdl_loss(logits, targets) * self.gdl_weight
         ms_ssim = self.ms_ssim(logits, targets) * self.ms_ssim_weight
+        boundary = self.boundary_loss(logits, targets) * self.boundary_weight
+        
         # Combined loss
         total_loss = focal + dice + iou + ms_ssim #gdl
         return total_loss, focal, iou, dice, ms_ssim #gdl
