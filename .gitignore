@@ -115,9 +115,12 @@ data
 *.pkl
 *.pkl.json
 *.log.json
+*.csv
+*.out
 docs/modelzoo_statistics.md
 mmdet/.mim
 work_dirs/
+wandb/
 
 # Pytorch
 *.pth
@@ -129,3 +132,14 @@ work_dirs/
 
 # wandb
 wandb/
+
+# mmsegmentation
+configs/
+demo/
+docker/
+docs/
+mmseg/
+projects/
+resources/
+tests/
+tools/
