@@ -207,6 +207,24 @@ class CombinedLoss(nn.Module):
         gdl_x = torch.abs(d_probs_dx - d_targets_dx).mean()
         gdl_y = torch.abs(d_probs_dy - d_targets_dy).mean()
         return gdl_x + gdl_y
+    
+    def boundary_loss(self, logits, targets):
+        # 1. Prediction을 확률값으로 변환
+        pred = torch.sigmoid(logits)
+        # 2. Laplacian kernel을 사용하여 경계 검출
+        laplacian_kernel = torch.tensor([
+            [-1, -1, -1],
+            [-1,  8, -1],
+            [-1, -1, -1]
+        ], device=logits.device).float().view(1, 1, 3, 3)
+        # 3. 예측값과 타겟의 경계 추출
+        pred_boundary = F.conv2d(pred, laplacian_kernel, padding=1)
+        target_boundary = F.conv2d(targets, laplacian_kernel, padding=1)
+        # 4. 경계 부근 가중치 맵 생성 및 손실 계산
+        weight_map = F.max_pool2d(torch.sigmoid(target_boundary), kernel_size=3, stride=1, padding=1)
+        boundary_bce = F.binary_cross_entropy_with_logits(pred_boundary, target_boundary)
+        # 5. 가중치가 적용된 최종 boundary loss 계산
+        return (boundary_bce * (1 + 2 * weight_map)).mean()
 
     def forward(self, logits, targets):
         focal = self.focal_loss(logits, targets) * self.focal_weight
