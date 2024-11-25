@@ -93,7 +93,7 @@ def main():
 
     # Optimizer 정의
     optimizer = optim.AdamW(params=model.parameters(), lr=LR, weight_decay=3e-4)
-    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer,mode='max',factor=0.3,patience=3)
+    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer,mode='max',factor=0.3,patience=3,verbose=True)
 
     train(model, train_loader, valid_loader, criterion, optimizer, scheduler)
 
