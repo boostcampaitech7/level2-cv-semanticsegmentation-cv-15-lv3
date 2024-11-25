@@ -14,7 +14,10 @@ from DataSet.DataLoder import get_image_label_paths
 from config import IMAGE_ROOT,LABEL_ROOT,BATCH_SIZE,IMSIZE,CLASSES,MILESTONES,NUM_EPOCHS, GAMMA,LR, SAVED_DIR
 from DataSet.Dataset import XRayDataset
 from Loss.Loss import CombinedLoss
-from Train import train
+
+from TrainMixedPrecision import train
+# from Train import train
+
 from Util.SetSeed import set_seed
 from sklearn.utils import shuffle
 

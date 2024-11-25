@@ -75,7 +75,7 @@ def train(model, data_loader, val_loader, criterion, optimizer, scheduler, accum
 
         # 스케줄러 업데이트
         scheduler.step(dice)
-        print(f"Epoch {epoch + 1}: Learning Rate -> {scheduler.get_last_lr()}")
+        # print(f"Epoch {epoch + 1}: Learning Rate -> {scheduler.get_last_lr()}")
 
         # 시간 기록 및 ETA 계산
         end_time = datetime.datetime.now()

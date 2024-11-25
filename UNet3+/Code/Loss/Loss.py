@@ -234,7 +234,7 @@ class CombinedLoss(nn.Module):
         #bce=self.bce_loss_fn(logits, targets)
         #gdl = self.gdl_loss(logits, targets) * self.gdl_weight
         ms_ssim = self.ms_ssim(logits, targets) * self.ms_ssim_weight
-        boundary = self.boundary_loss(logits, targets) * self.boundary_weight
+        # boundary = self.boundary_loss(logits, targets) * self.boundary_weight
         
         # Combined loss
         total_loss = focal + dice + iou + ms_ssim #gdl
