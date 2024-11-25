@@ -19,6 +19,7 @@ def train(model, data_loader, val_loader, criterion, optimizer, scheduler, accum
         accumulation_steps (int): Number of steps to accumulate gradients before updating.
         threshold (float): Dice 점수를 기준으로 손실 함수 변경.
     """
+    wandb.init(project="UNet3+", name=MODELNAME)
     print(f'Start training with Gradient Accumulation (accumulation_steps={accumulation_steps})..')
     model.cuda()
 
