@@ -36,12 +36,12 @@ class HRNetEncoder_NOReduce(nn.Module): #1/4안줄이고 시작.
         # Define new convolution layers
         self.init_conv1 = nn.Sequential(
             nn.Conv2d(3, 64, kernel_size=3, stride=1, padding=1, bias=False),
-            nn.BatchNorm2d(64, momentum=0.05),
+            nn.BatchNorm2d(64, momentum=0.1),
             nn.ReLU(inplace=True)
         )
         self.init_conv2 = nn.Sequential(
             nn.Conv2d(64, 64, kernel_size=3, stride=1, padding=1, bias=False),
-            nn.BatchNorm2d(64, momentum=0.05),
+            nn.BatchNorm2d(64, momentum=0.1),
             nn.ReLU(inplace=True)
         )
 
