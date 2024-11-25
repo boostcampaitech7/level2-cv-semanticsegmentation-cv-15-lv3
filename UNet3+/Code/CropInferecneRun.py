@@ -35,9 +35,9 @@ def test(model, data_loader, thr=0.5):
                 start_x, start_y, end_x, end_y = crop_box
                 crop_width = end_x - start_x
                 crop_height = end_y - start_y
-
+                outputs = torch.sigmoid(outputs)
                 # Interpolate to crop size
-                output = F.interpolate(output.unsqueeze(0), size=(crop_height, crop_width), mode="nearest")
+                output = F.interpolate(output.unsqueeze(0), size=(crop_height, crop_width), mode="bilinear")
                 output = (output > thr).squeeze(0).detach().cpu().numpy()
 
                 for c, segm in enumerate(output):

@@ -35,7 +35,7 @@ def main():
     # 폴더 이름을 그룹으로 해서 GroupKFold를 수행합니다.
     # 동일 인물의 손이 train, valid에 따로 들어가는 것을 방지합니다.
     groups = [os.path.dirname(fname) for fname in pngs]
-    groups = shuffle(groups, random_state=21)  
+    #groups = shuffle(groups, random_state=21)  
     # dummy label
     ys = [0 for fname in pngs]
 

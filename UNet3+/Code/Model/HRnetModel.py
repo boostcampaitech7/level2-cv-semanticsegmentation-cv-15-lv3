@@ -22,7 +22,7 @@ from HRNet.lib.HRmodels.cls_hrnet import HighResolutionNet, get_cls_net
 import yaml
 
 
-class HRNetEncoder_NOReduce(nn.Module):
+class HRNetEncoder_NOReduce(nn.Module): #1/4안줄이고 시작.
     def __init__(self, hrnet_config_file, pretrained_weights=None):
         super(HRNetEncoder_NOReduce, self).__init__()
 
@@ -122,7 +122,7 @@ class HRNetEncoder_NOReduce(nn.Module):
         )
         return merged
 
-class HRNetEncoder(nn.Module):
+class HRNetEncoder(nn.Module): #1/4이미지
     def __init__(self, hrnet_config_file, pretrained_weights=None):
         super(HRNetEncoder, self).__init__()
 
