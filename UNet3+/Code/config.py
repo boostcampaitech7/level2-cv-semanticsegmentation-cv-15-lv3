@@ -1,6 +1,6 @@
 import os
 
-WEBHOOK_URL = 'https://discord.com/api/webhooks/1305343891964428318/G85AIWjdio2VBY7V-egcaI-qJDOOcRAAVrThsUh6yYmKMdKT5Ff4HNkMkk8gWkkCNdWV'
+WEBHOOK_URL = ' https://discord.com/api/webhooks/1306529756568879185/WJTAzXYo8-J67q6Bpb9q0DOGkXdc5iRlUmaaeZeFHPdlUYAB7uH2R2ZflEtpv4sYh1hp'
 
 # YOLO_MODEL_PATH="/data/ephemeral/home/MCG/YOLO_Detection_Model/best.pt"
 
@@ -42,7 +42,7 @@ ACCUMULATION_STEPS = 32
 BATCH_SIZE = 1
 IMSIZE = 320
 
-LR = 0.0002
+LR = 0.0001
 MILESTONES=[5,20,32,40,47]
 GAMMA=0.3
 
