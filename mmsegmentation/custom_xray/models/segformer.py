@@ -69,3 +69,21 @@ default_hooks = dict(
     sampler_seed=dict(type='DistSamplerSeedHook'),
     visualization=dict(type='SegVisualizationHook')
 )
+
+# wandb 설정 추가
+vis_backends = [
+    dict(type='LocalVisBackend'),
+    dict(
+        type='WandbVisBackend',
+        init_kwargs={
+            'project': 'Hand_bone_segmentation_mmseg',  # wandb project name
+            'name': 'segformer-b0',   # experiment name
+        }
+    )
+]
+
+visualizer = dict(
+    type='SegLocalVisualizer', 
+    vis_backends=vis_backends,
+    name='visualizer'
+)
