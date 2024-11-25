@@ -1,33 +1,33 @@
 import os
 
 
-WEBHOOK_URL = 'https://discord.com/api/webhooks/1306529597055041562/DUG0omhuBla0YM6SVqVgcSWgRBP2D0WZ5_xJt9aNvLL2QJpIHicb4tRupbvWYRLRtEgN'
+WEBHOOK_URL = 'https://discord.com/api/webhooks/1306529756568879185/WJTAzXYo8-J67q6Bpb9q0DOGkXdc5iRlUmaaeZeFHPdlUYAB7uH2R2ZflEtpv4sYh1hp'
 
 
-YOLO_MODEL_PATH="/data/ephemeral/home/MCG/YOLO_Detection_Model/best.pt"
+# YOLO_MODEL_PATH="/data/ephemeral/home/MCG/YOLO_Detection_Model/best.pt"
 
-SAVE_VISUALIZE_TRAIN_DATA_PATH="/data/ephemeral/home/MCG/YOLO_Detection_Model/crop_train_Image"
+SAVE_VISUALIZE_TRAIN_DATA_PATH="../../train_Image"
 VISUALIZE_TRAIN_DATA=False
 
-IMAGE_ROOT = "/data/ephemeral/home/MCG/data/train/DCM"
-LABEL_ROOT = "/data/ephemeral/home/MCG/data/train/outputs_json"
+IMAGE_ROOT = "../../data/train/DCM"
+LABEL_ROOT = "../../data/train/outputs_json"
 
 
-'''CLASSES = [
+CLASSES = [
     'finger-1', 'finger-2', 'finger-3', 'finger-4', 'finger-5',
     'finger-6', 'finger-7', 'finger-8', 'finger-9', 'finger-10',
     'finger-11', 'finger-12', 'finger-13', 'finger-14', 'finger-15',
     'finger-16', 'finger-17', 'finger-18', 'finger-19', 'Trapezium',
     'Trapezoid', 'Capitate', 'Hamate', 'Scaphoid', 'Lunate',
     'Triquetrum', 'Pisiform', 'Radius', 'Ulna',
-]'''
-
-
-CLASSES = [
-    'Trapezium',
-    'Trapezoid', 'Capitate', 'Hamate', 'Scaphoid', 'Lunate',
-    'Triquetrum', 'Pisiform',
 ]
+
+
+# CLASSES = [
+#     'Trapezium',
+#     'Trapezoid', 'Capitate', 'Hamate', 'Scaphoid', 'Lunate',
+#     'Triquetrum', 'Pisiform',
+# ]
 
 
 CLASS2IND = {v: i for i, v in enumerate(CLASSES)}
@@ -46,15 +46,15 @@ VAL_EVERY = 1
 
 ACCUMULATION_STEPS=32
 BATCH_SIZE = 1
-IMSIZE=480
+IMSIZE=2048
 
 LR = 0.0001
 MILESTONES=[5,20,32,40,47]
 GAMMA=0.3
 
 
-SAVED_DIR = "/data/ephemeral/home/MCG/UNetRefactored/Creadted_model/"
-MODELNAME="CropHRNet480.pt"
+SAVED_DIR = "../checkpoints"
+MODELNAME="UNet3Plus_HRNet480.pt"
 if not os.path.isdir(SAVED_DIR):
     os.mkdir(SAVED_DIR)
     
@@ -62,7 +62,7 @@ if not os.path.isdir(SAVED_DIR):
 
 INFERENCE_MODEL_NAME="CropHRNet480.pt"
 
-TEST_IMAGE_ROOT="/data/ephemeral/home/MCG/data/test/DCM"
+TEST_IMAGE_ROOT="../../data/test/DCM"
 
-CSVDIR="/data/ephemeral/home/MCG/UNetRefactored/CSV"
-CSVNAME="CropHRNet480.csv"
+CSVDIR="./CSV"
+CSVNAME="UNet3Plus_HRNet480.csv"

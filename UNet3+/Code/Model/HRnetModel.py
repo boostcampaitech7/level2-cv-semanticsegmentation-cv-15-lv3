@@ -210,14 +210,14 @@ class HRNetEncoder(nn.Module): #1/4이미지
 
 class UNet3PlusHRNet(nn.Module):
     def __init__(self, in_channels=3, n_classes=1,
-                 hrnet_config_file="/data/ephemeral/home/MCG/level2-cv-semanticsegmentation-cv-15-lv3/UNet3+/Code/HRNet/experiments/w64.yaml",
-                 pretrained_weights="/data/ephemeral/home/MCG/hrnetv2_w64_imagenet_pretrained.pth"):
+                 hrnet_config_file="./HRNet/experiments/w64.yaml",
+                 pretrained_weights="../checkpoints/hrnetv2_w64_imagenet_pretrained.pth"):
         super(UNet3PlusHRNet, self).__init__()
 
         filters = [256, 192, 448, 960] #HRNetEncoder_NOReduce
         #filters = [256, 144, 336, 720] #HRNetEncoder
         # Define HRNet stages as encoder
-        self.encoder=HRNetEncoder_NOReduce(hrnet_config_file=hrnet_config_file, pretrained_weights=pretrained_weights)
+        self.encoder=HRNetEncoder(hrnet_config_file=hrnet_config_file, pretrained_weights=pretrained_weights)
 
 
         ## -------------Decoder--------------

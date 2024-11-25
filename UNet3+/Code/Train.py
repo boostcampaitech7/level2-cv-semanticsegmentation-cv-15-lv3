@@ -3,6 +3,7 @@ from config import CLASSES, NUM_EPOCHS, VAL_EVERY, SAVED_DIR, MODELNAME, ACCUMUL
 from Validation import validation
 import os
 import torch
+import wandb
 from Util.SetSeed import set_seed
 from Util.DiscordAlam import send_discord_message
 
@@ -20,11 +21,19 @@ def train(model, data_loader, val_loader, criterion, optimizer, scheduler,
         threshold (float): Dice 점수를 기준으로 손실 함수 변경.
         use_mixed_precision (bool): Mixed Precision 사용 여부.
     """
+
+    wandb.init(project="UNet3+", name=MODELNAME)
+
     print(f'Start training with Gradient Accumulation (accumulation_steps={accumulation_steps})..')
     model.cuda()
 
     n_class = len(CLASSES)
     best_dice = 0.0
+    global_step = 0
+
+    # Early stopping 설정
+    patience = 10
+    counter = 0
 
     scaler = torch.cuda.amp.GradScaler(enabled=use_mixed_precision)
 
@@ -38,6 +47,7 @@ def train(model, data_loader, val_loader, criterion, optimizer, scheduler,
         # Gradient Accumulation Step 초기화
         optimizer.zero_grad()
 
+        epoch_loss = 0
         for step, (images, masks) in enumerate(data_loader):
             images, masks = images.cuda(), masks.cuda()
 
@@ -45,6 +55,8 @@ def train(model, data_loader, val_loader, criterion, optimizer, scheduler,
             with torch.cuda.amp.autocast(enabled=use_mixed_precision):
                 outputs = model(images)  # 모델 출력
                 loss, focal, iou, dice, msssim = criterion(outputs, masks)
+
+            epoch_loss += loss.item()
 
             # Backpropagation
             scaler.scale(loss).backward()
@@ -65,6 +77,24 @@ def train(model, data_loader, val_loader, criterion, optimizer, scheduler,
                     f'IoU: {round(iou.item(), 4)}, '
                     f'Dice: {round(dice.item(), 4)}'
                 )
+
+                # Step 단위 로깅
+                wandb.log({
+                    "Step Loss": loss.item(),
+                    "Step Focal Loss": focal.item(),
+                    "Step Msssim Loss": msssim.item(),
+                    "Step IoU": iou.item(),
+                    "Step Dice": dice.item(),
+                    "Learning Rate": optimizer.param_groups[0]['lr']
+                }, step=global_step)
+                global_step += 1
+
+        # 에폭 평균 loss 계산 및 로깅
+        avg_epoch_loss = epoch_loss / len(data_loader)
+        wandb.log({
+            "Epoch": epoch + 1,
+            "Train Loss": avg_epoch_loss,
+        }, step=global_step)
 
         # Validation 주기에 따른 Loss 출력 및 Best Model 저장
         if (epoch + 1) % VAL_EVERY == 0:
