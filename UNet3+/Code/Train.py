@@ -156,7 +156,6 @@ def train(model, data_loader, val_loader, criterion, optimizer, scheduler, accum
 
         # 스케줄러 업데이트
         scheduler.step(dice)
-        print(f"Epoch {epoch + 1}: Learning Rate -> {scheduler.get_last_lr()}")
 
         # 에폭 종료 시간 기록
         end_time = datetime.datetime.now()
