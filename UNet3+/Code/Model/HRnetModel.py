@@ -79,7 +79,7 @@ class HRNetEncoder_NOReduce(nn.Module): #1/4안줄이고 시작.
             else:
                 x_list.append(h1)
         y_list = self.hrnet.stage2(x_list)
-        h2 = self._merge_multi_scale(y_list)  # Merge outputs for this stage
+        #h2 = self._merge_multi_scale(y_list)  # Merge outputs for this stage
 
         # Stage 3
         x_list = []
@@ -89,7 +89,7 @@ class HRNetEncoder_NOReduce(nn.Module): #1/4안줄이고 시작.
             else:
                 x_list.append(y_list[i])
         y_list = self.hrnet.stage3(x_list)
-        h3 = self._merge_multi_scale(y_list)  # Merge outputs for this stage
+        #h3 = self._merge_multi_scale(y_list)  # Merge outputs for this stage
 
         # Stage 4
         x_list = []
@@ -99,8 +99,9 @@ class HRNetEncoder_NOReduce(nn.Module): #1/4안줄이고 시작.
             else:
                 x_list.append(y_list[i])
         y_list = self.hrnet.stage4(x_list)
-        h4 = self._merge_multi_scale(y_list)  # Merge outputs for this stage
-        #print(h1.shape,h2.shape,h3.shape,h4.shape)
+        h1, h2, h3, h4=y_list
+        #h4 = self._merge_multi_scale(y_list)  # Merge outputs for this stage
+        print(h1.shape,h2.shape,h3.shape,h4.shape)
         return h1, h2, h3, h4
 
     def _merge_multi_scale(self, features):
@@ -157,7 +158,7 @@ class HRNetEncoder(nn.Module): #1/4이미지
         y_list = self.hrnet.stage2(x_list)
         #for a in y_list:
             #print("2:@@@@@@@@@@@@@@@",a.shape)
-        h2 = self._merge_multi_scale(y_list)  # Merge outputs for this stage
+        #h2 = self._merge_multi_scale(y_list)  # Merge outputs for this stage
         #print(h2.shape)
 
         # Stage 3
@@ -170,7 +171,7 @@ class HRNetEncoder(nn.Module): #1/4이미지
         y_list = self.hrnet.stage3(x_list)
         #for a in y_list:
             #print("3:@@@@@@@@@@@@@@@",a.shape)
-        h3 = self._merge_multi_scale(y_list)  # Merge outputs for this stage
+        #h3 = self._merge_multi_scale(y_list)  # Merge outputs for this stage
         #print(h3.shape)
         # Stage 4
         x_list = []
@@ -182,12 +183,13 @@ class HRNetEncoder(nn.Module): #1/4이미지
         y_list = self.hrnet.stage4(x_list)
         #for a in y_list:
             #print("4:@@@@@@@@@@@@@@@",a.shape)
-        h4 = self._merge_multi_scale(y_list)  # Merge outputs for this stage
-        #print(h4.shape)
+        #h4 = self._merge_multi_scale(y_list)  # Merge outputs for this stage
+        h1,h2,h3,h4=y_list
+        #print(h1.shape,h2.shape,h3.shape,h4.shape)
         return h1, h2, h3, h4
 
 
-    def _merge_multi_scale(self, features):
+    '''def _merge_multi_scale(self, features):
         """
         Merge multi-scale outputs into a single feature map by downsampling all to the lowest resolution.
         Args:
@@ -204,7 +206,7 @@ class HRNetEncoder(nn.Module): #1/4이미지
              for feat in features],
             dim=1  # Concatenate along the channel dimension
         )
-        return merged
+        return merged'''
 
 
 
@@ -214,7 +216,7 @@ class UNet3PlusHRNet(nn.Module):
                  pretrained_weights="/data/ephemeral/home/MCG/hrnetv2_w64_imagenet_pretrained.pth"):
         super(UNet3PlusHRNet, self).__init__()
 
-        filters = [256, 192, 448, 960] #HRNetEncoder_NOReduce
+        filters = [64, 128, 256, 512] #HRNetEncoder_NOReduce
         #filters = [256, 144, 336, 720] #HRNetEncoder
         # Define HRNet stages as encoder
         self.encoder=HRNetEncoder_NOReduce(hrnet_config_file=hrnet_config_file, pretrained_weights=pretrained_weights)
