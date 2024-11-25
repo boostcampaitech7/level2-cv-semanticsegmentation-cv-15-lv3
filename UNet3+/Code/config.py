@@ -7,8 +7,8 @@ WEBHOOK_URL = 'https://discord.com/api/webhooks/1305343891964428318/G85AIWjdio2V
 # SAVE_VISUALIZE_TRAIN_DATA_PATH="/data/ephemeral/home/MCG/YOLO_Detection_Model/crop_train_Image"
 VISUALIZE_TRAIN_DATA=False
 
-IMAGE_ROOT = "../data/train/DCM"
-LABEL_ROOT = "../data/train/outputs_json"
+IMAGE_ROOT = "../../data/train/DCM"
+LABEL_ROOT = "../../data/train/outputs_json"
 
 CLASSES = [
     'finger-1', 'finger-2', 'finger-3', 'finger-4', 'finger-5',
@@ -46,14 +46,14 @@ LR = 0.0002
 MILESTONES=[5,20,32,40,47]
 GAMMA=0.3
 
-SAVED_DIR = "../Creadted_model/"
-MODELNAME="CropHRNet480.pt"
+SAVED_DIR = "../checkpoints"
+MODELNAME="UNet3Plus_HRNet.pt"
 if not os.path.isdir(SAVED_DIR):
     os.mkdir(SAVED_DIR)
 
-INFERENCE_MODEL_NAME="CropHRNet480.pt"
+INFERENCE_MODEL_NAME="UNet3Plus_HRNet.pt"
 
 TEST_IMAGE_ROOT="../data/test/DCM"
 
-CSVDIR="../CSV"
-CSVNAME="CropHRNet480.csv"
+CSVDIR="../csv"
+CSVNAME="UNet3Plus_HRNet.csv"
