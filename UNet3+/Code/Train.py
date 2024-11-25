@@ -40,6 +40,7 @@ def train(model, data_loader, val_loader, criterion, optimizer, scheduler, accum
         # Gradient Accumulation Step 초기화
         optimizer.zero_grad()
 
+        epoch_loss = 0
         for step, (images, masks) in enumerate(data_loader):
             images, masks = images.cuda(), masks.cuda()
 
