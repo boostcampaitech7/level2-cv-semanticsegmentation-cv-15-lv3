@@ -1,10 +1,10 @@
 import os
 
-WEBHOOK_URL = ' https://discord.com/api/webhooks/1306529756568879185/WJTAzXYo8-J67q6Bpb9q0DOGkXdc5iRlUmaaeZeFHPdlUYAB7uH2R2ZflEtpv4sYh1hp'
+WEBHOOK_URL = 'https://discord.com/api/webhooks/1305343891964428318/G85AIWjdio2VBY7V-egcaI-qJDOOcRAAVrThsUh6yYmKMdKT5Ff4HNkMkk8gWkkCNdWV'
 
 # YOLO_MODEL_PATH="/data/ephemeral/home/MCG/YOLO_Detection_Model/best.pt"
-
 # SAVE_VISUALIZE_TRAIN_DATA_PATH="/data/ephemeral/home/MCG/YOLO_Detection_Model/crop_train_Image"
+
 VISUALIZE_TRAIN_DATA=False
 
 IMAGE_ROOT = "../../data/train/DCM"
@@ -40,7 +40,7 @@ VAL_EVERY = 1
 
 ACCUMULATION_STEPS = 32
 BATCH_SIZE = 1
-IMSIZE = 320
+IMSIZE = 544
 
 LR = 0.0001
 MILESTONES=[5,20,32,40,47]
@@ -51,8 +51,8 @@ MODELNAME="UNet3Plus_HRNet.pt"
 if not os.path.isdir(SAVED_DIR):
     os.mkdir(SAVED_DIR)
 
-INFERENCE_MODEL_NAME="UNet3Plus_HRNet.pt"
-
+INFERENCE_MODEL_NAME="UNet3Plus_HRNet_BoundaryLoss.pt"
+EXPERIMENT_NAME="UNet3Plus_HRNet_BoundaryLoss"
 TEST_IMAGE_ROOT="../data/test/DCM"
 
 CSVDIR="../csv"

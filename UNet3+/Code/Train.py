@@ -6,6 +6,7 @@ import torch
 import wandb
 from Util.SetSeed import set_seed
 from Util.DiscordAlam import send_discord_message
+from config import EXPERIMENT_NAME
 
 set_seed()
 
@@ -19,7 +20,7 @@ def train(model, data_loader, val_loader, criterion, optimizer, scheduler, accum
         accumulation_steps (int): Number of steps to accumulate gradients before updating.
         threshold (float): Dice 점수를 기준으로 손실 함수 변경.
     """
-    wandb.init(project="UNet3+", name=MODELNAME)
+    wandb.init(project="UNet3+", name=EXPERIMENT_NAME)
     print(f'Start training with Gradient Accumulation (accumulation_steps={accumulation_steps})..')
     model.cuda()
 
