@@ -12,6 +12,7 @@ def validation(epoch, model, data_loader, criterion, thr=0.5):
     total_iou = 0
     total_dice = 0
     total_msssim = 0
+    total_boundary = 0
     num_samples = 0  # 총 샘플 수 계산
 
     dices = []
@@ -30,13 +31,13 @@ def validation(epoch, model, data_loader, criterion, thr=0.5):
                 outputs = F.interpolate(outputs, size=masks.shape[-2:], mode="bilinear", align_corners=False)
             
             # 손실 계산
-            batch_loss, batch_focal, batch_iou, batch_dice, batch_msssim = criterion(outputs, masks)
+            batch_loss, batch_focal, batch_iou, batch_dice, batch_msssim, batch_boundary = criterion(outputs, masks)
             total_loss += batch_loss.item()
             total_focal += batch_focal.item()
             total_iou += batch_iou.item()
             total_dice += batch_dice.item()
             total_msssim += batch_msssim.item()
-
+            total_boundary += batch_boundary.item()
             num_samples += 1
             outputs = torch.sigmoid(outputs)
             # Dice 계산
@@ -54,7 +55,7 @@ def validation(epoch, model, data_loader, criterion, thr=0.5):
     avg_iou = total_iou / num_samples
     avg_dice = total_dice / num_samples
     avg_msssim = total_msssim / num_samples
-
+    avg_boundary = total_boundary / num_samples
     # Dice 평균 계산
     dices = torch.cat(dices, 0)
     dices_per_class = dices.mean(dim=0)
@@ -70,6 +71,6 @@ def validation(epoch, model, data_loader, criterion, thr=0.5):
 
     # 최종 결과 출력
     print(f"Validation Completed: Avg Loss: {avg_loss:.4f}, Avg Dice: {avg_dice_score:.4f}")
-    print(f"Focal: {avg_focal:.4f}, IoU: {avg_iou:.4f}, Dice: {avg_dice:.4f}, MS-SSIM: {avg_msssim:.4f}")
+    print(f"Focal: {avg_focal:.4f}, IoU: {avg_iou:.4f}, Dice: {avg_dice:.4f}, MS-SSIM: {avg_msssim:.4f}, Boundary: {avg_boundary:.4f}")
 
     return avg_dice_score

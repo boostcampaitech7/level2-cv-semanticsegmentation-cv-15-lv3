@@ -45,10 +45,9 @@ def train(model, data_loader, val_loader, criterion, optimizer, scheduler, accum
             # Mixed Precision 적용
             with autocast():
                 outputs = model(images)
-                batch_loss, batch_focal, batch_iou, batch_dice, batch_msssim = criterion(outputs, masks)
+                batch_loss, batch_focal, batch_iou, batch_dice, batch_msssim, batch_boundary = criterion(outputs, masks)
                 
-                weighted_loss = batch_loss
-                loss = weighted_loss
+                loss = batch_loss
 
             # Loss Scaling 및 Backpropagation
             scaler.scale(loss).backward()
@@ -70,7 +69,8 @@ def train(model, data_loader, val_loader, criterion, optimizer, scheduler, accum
                     f'Focal: {round(batch_focal.item(), 4)}, '
                     f'Msssim: {round(batch_msssim.item(), 4)}, '
                     f'IoU: {round(batch_iou.item(), 4)}, '
-                    f'Dice: {round(batch_dice.item(), 4)}'
+                    f'Dice: {round(batch_dice.item(), 4)}, '
+                    f'Boundary: {round(batch_boundary.item(), 4)}'
                 )
                 # Step 단위 로깅
                 wandb.log({
@@ -79,6 +79,7 @@ def train(model, data_loader, val_loader, criterion, optimizer, scheduler, accum
                     "Step Msssim Loss": batch_msssim.item(),
                     "Step IoU": batch_iou.item(),
                     "Step Dice": batch_dice.item(),
+                    "Step Boundary Loss": batch_boundary.item(),
                     "Learning Rate": optimizer.param_groups[0]['lr']
                 }, step=global_step)
                 global_step += 1

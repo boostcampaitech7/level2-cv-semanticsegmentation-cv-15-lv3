@@ -51,7 +51,7 @@ def train(model, data_loader, val_loader, criterion, optimizer, scheduler, accum
             focal, iou, dice,msssim = 0, 0, 0,0
 
             #for i, output in enumerate(outputs):  # Deep Supervision 출력별 손실 계산
-            batch_loss, batch_focal, batch_iou, batch_dice, batch_msssim = criterion(outputs, masks)
+            batch_loss, batch_focal, batch_iou, batch_dice, batch_msssim, batch_boundary = criterion(outputs, masks)
             # 각 배치별 손실을 출력
 
             weighted_loss = batch_loss
@@ -62,6 +62,7 @@ def train(model, data_loader, val_loader, criterion, optimizer, scheduler, accum
             msssim = batch_msssim
             iou =  batch_iou
             dice =  batch_dice
+            boundary = batch_boundary
 
             epoch_loss += loss.item()
 
@@ -82,7 +83,8 @@ def train(model, data_loader, val_loader, criterion, optimizer, scheduler, accum
                     f'Focal: {round(focal.item(), 4)}, '
                     f'Msssim: {round(msssim.item(), 4)}, '
                     f'IoU: {round(iou.item(), 4)}, '
-                    f'Dice: {round(dice.item(), 4)}'
+                    f'Dice: {round(dice.item(), 4)}, '
+                    f'Boundary: {round(boundary.item(), 4)}'
                 )
 
                 # Step 단위 로깅
