@@ -21,7 +21,7 @@ import torch.nn as nn
 from HRNet.lib.HRmodels.cls_hrnet import HighResolutionNet, get_cls_net
 import yaml
 
-'''
+
 class HRNetEncoder_NOReduce(nn.Module):
     def __init__(self, hrnet_config_file, pretrained_weights=None):
         super(HRNetEncoder_NOReduce, self).__init__()
@@ -100,7 +100,7 @@ class HRNetEncoder_NOReduce(nn.Module):
                 x_list.append(y_list[i])
         y_list = self.hrnet.stage4(x_list)
         h4 = self._merge_multi_scale(y_list)  # Merge outputs for this stage
-        print(h1.shape,h2.shape,h3.shape,h4.shape)
+        #print(h1.shape,h2.shape,h3.shape,h4.shape)
         return h1, h2, h3, h4
 
     def _merge_multi_scale(self, features):
@@ -120,7 +120,7 @@ class HRNetEncoder_NOReduce(nn.Module):
              for feat in features],
             dim=1  # Concatenate along the channel dimension
         )
-        return merged'''
+        return merged
 
 class HRNetEncoder(nn.Module):
     def __init__(self, hrnet_config_file, pretrained_weights=None):
@@ -217,7 +217,7 @@ class UNet3PlusHRNet(nn.Module):
         filters = [256, 192, 448, 960]
 
         # Define HRNet stages as encoder
-        self.encoder=HRNetEncoder(hrnet_config_file=hrnet_config_file, pretrained_weights=pretrained_weights)
+        self.encoder=HRNetEncoder_NOReduce(hrnet_config_file=hrnet_config_file, pretrained_weights=pretrained_weights)
 
 
         ## -------------Decoder--------------

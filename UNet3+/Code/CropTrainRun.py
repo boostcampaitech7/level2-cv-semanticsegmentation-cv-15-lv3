@@ -89,7 +89,7 @@ def main():
     model = UNet3PlusHRNet(n_classes=len(CLASSES))
 
     # Loss function 정의
-    criterion = CombinedLoss(focal_weight=1.5, iou_weight=1, ms_ssim_weight=1, dice_weight=0)
+    criterion = CombinedLoss(focal_weight=1, iou_weight=1, ms_ssim_weight=1, dice_weight=0)
 
     # Optimizer 정의
     optimizer = optim.AdamW(params=model.parameters(), lr=LR, weight_decay=3e-4)
