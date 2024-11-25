@@ -214,8 +214,8 @@ class UNet3PlusHRNet(nn.Module):
                  pretrained_weights="/data/ephemeral/home/MCG/hrnetv2_w64_imagenet_pretrained.pth"):
         super(UNet3PlusHRNet, self).__init__()
 
-        filters = [256, 192, 448, 960]
-
+        filters = [256, 192, 448, 960] #HRNetEncoder_NOReduce
+        #filters = [256, 144, 336, 720] #HRNetEncoder
         # Define HRNet stages as encoder
         self.encoder=HRNetEncoder_NOReduce(hrnet_config_file=hrnet_config_file, pretrained_weights=pretrained_weights)
 
