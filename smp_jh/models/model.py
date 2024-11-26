@@ -1,7 +1,11 @@
 import segmentation_models_pytorch as smp
 from config.config import Config
+from .encoders.register import register_swin_encoder
 
 def get_model(num_classes=29):
+    # Register custom encoders
+    register_swin_encoder()
+
     MODELS = {
         'Unet': smp.Unet,
         'UnetPlusPlus': smp.UnetPlusPlus,
@@ -16,9 +20,23 @@ def get_model(num_classes=29):
     }
     
     model_fn = MODELS[Config.MODEL_ARCHITECTURE]
+
+    decoder_channels = (256, 128, 64, 32, 16)
+
+    if Config.ENCODER_NAME == "swin":
+        return model_fn(
+            encoder_name="swin_encoder",
+            encoder_weights=None,
+            in_channels=3,
+            classes=num_classes,
+            decoder_channels=decoder_channels,
+            decoder_use_batchnorm=True,
+            upsampling=2,
+        )
+    
     return model_fn(
-        encoder_name=Config.ENCODER_NAME,
-        encoder_weights=Config.ENCODER_WEIGHTS,
+        encoder_name="swin_encoder" if Config.ENCODER_NAME == "swin" else Config.ENCODER_NAME,
+        encoder_weights=None if Config.ENCODER_NAME == "swin" else Config.ENCODER_WEIGHTS,
         in_channels=3,
         classes=num_classes,
     )
