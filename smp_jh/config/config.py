@@ -9,7 +9,7 @@ class Config:
     
     # Model
     MODEL_ARCHITECTURE = 'UnetPlusPlus' # [Unet, UnetPlusPlus, FPN, PSPNet, DeepLabV3, DeepLabV3Plus, LinkNet, MAnet, PAN, UPerNet]
-    ENCODER_NAME = 'tu-hrnet_w64' # encoder 이름 Timm encoder 사용시 이름 앞에 tu- 붙임
+    ENCODER_NAME = 'swin' # encoder 이름 Timm encoder 사용시 이름 앞에 tu- 붙임
     ENCODER_WEIGHTS = 'imagenet' # pretrained weights
 
     TRAIN_BATCH_SIZE = 2
@@ -18,6 +18,8 @@ class Config:
     NUM_EPOCHS = 100
     VAL_EVERY = 1
     RANDOM_SEED = 21
+
+    IMG_SIZE = 1536
 
     # Loss
     LOSS_TYPE = "bce" # [ "bce", "dice", "focal" ]
@@ -28,7 +30,7 @@ class Config:
     MIN_LR = 1e-6
     
     WANDB = {
-        "api_key": "your_api_key",
+        "api_key": "6bbca80c9b2d573046d3ffe19c0d407ba54ad774",
         "project_name": "Hand_bone_segmentation",
         "experiment_detail": f"{MODEL_ARCHITECTURE}_{ENCODER_NAME}_batch{TRAIN_BATCH_SIZE}_{NUM_EPOCHS}ep",
         "model_name": MODEL_ARCHITECTURE,
