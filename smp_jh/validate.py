@@ -17,6 +17,7 @@ from config.config import Config
 from dataset.transforms import Transforms
 from utils.metrics import dice_coef
 from utils.rle import encode_mask_to_rle
+from dataset.dataset import StratifiedXRayDataset
 
 def set_seed(seed):
     torch.manual_seed(seed)
@@ -241,7 +242,7 @@ def main(args):
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     
     # 데이터셋 준비
-    valid_dataset = XRayDataset(
+    valid_dataset = StratifiedXRayDataset(
         image_root=Config.TRAIN_IMAGE_ROOT,
         label_root=Config.TRAIN_LABEL_ROOT,
         is_train=False,
