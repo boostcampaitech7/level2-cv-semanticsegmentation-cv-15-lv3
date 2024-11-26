@@ -456,3 +456,28 @@ class StratifiedXRayDataset(XRayDataset):
         for strata, prop in self.get_strata_distribution().items():
             print(f"{strata}: {prop:.1%}")
         print(f"{'='*50}\n")
+    
+    # train_set & validation_set list를 txt 파일로 저장하기 위한 코드
+    def save_file_lists(self, output_dir="output_files"):
+        """
+        Train과 Validation 파일 리스트를 텍스트 파일로 저장
+        Args:
+            output_dir (str): 텍스트 파일을 저장할 디렉토리 경로
+        """
+        os.makedirs(output_dir, exist_ok=True)  # 저장할 폴더 생성
+
+        # Train 파일 저장
+        if self.is_train:
+            train_file_path = os.path.join(output_dir, "train_files.txt")
+            with open(train_file_path, "w") as f:
+                for file_name in self.filenames:
+                    f.write(f"{file_name}\n")
+            print(f"Train file list saved to {train_file_path}")
+
+        # Validation 파일 저장
+        else:
+            val_file_path = os.path.join(output_dir, "val_files.txt")
+            with open(val_file_path, "w") as f:
+                for file_name in self.filenames:
+                    f.write(f"{file_name}\n")
+            print(f"Validation file list saved to {val_file_path}")
