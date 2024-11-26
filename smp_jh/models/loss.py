@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from scipy.ndimage import sobel
+import torch.nn.functional as F
 
 class Loss:
     @staticmethod
@@ -72,43 +72,51 @@ class LogIoULoss(nn.Module):
 
 class EdgeLoss(nn.Module):
     def __init__(self):
-        super(EdgeLoss, self).__init__()
-        self.bce_loss = nn.BCELoss()  # BCE Loss for edge comparison
-
+        super().__init__()
+        self.criterion = nn.BCEWithLogitsLoss()
+        
+    def get_edges(self, tensor):
+        # tensor를 numpy로 변환하지 않고 PyTorch operations 사용
+        batch_size = tensor.size(0)
+        
+        # Sobel filters
+        sobel_x = torch.tensor([[-1, 0, 1], [-2, 0, 2], [-1, 0, 1]], dtype=tensor.dtype, device=tensor.device).view(1, 1, 3, 3)
+        sobel_y = torch.tensor([[-1, -2, -1], [0, 0, 0], [1, 2, 1]], dtype=tensor.dtype, device=tensor.device).view(1, 1, 3, 3)
+        
+        # Apply convolution for edge detection
+        tensor = tensor.view(-1, 1, tensor.size(2), tensor.size(3))  # reshape for conv2d
+        edges_x = F.conv2d(tensor, sobel_x, padding=1)
+        edges_y = F.conv2d(tensor, sobel_y, padding=1)
+        edges = torch.sqrt(edges_x ** 2 + edges_y ** 2)
+        
+        # Threshold
+        edges = (edges > 0.5).float()
+        return edges.view(batch_size, -1, edges.size(2), edges.size(3))
+    
     def forward(self, pred, target):
-        # Extract edges from target and predicted labels
+        pred_edges = self.get_edges(pred)
         target_edges = self.get_edges(target)
-        pred_edges = self.get_edges(torch.argmax(pred, dim=1))
-
-        # Convert edges to float for loss calculation
-        pred_edges = pred_edges.float()
-        target_edges = target_edges.float()
-
-        # Compute Edge Loss (e.g., BCE)
-        edge_loss = self.bce_loss(pred_edges, target_edges)
-
-        return edge_loss
-
-    @staticmethod
-    def get_edges(tensor):
-        """
-        Apply Sobel filter to extract edges.
-        """
-        tensor = tensor.detach().cpu().numpy()
-        edges = sobel(tensor, axis=-1) + sobel(tensor, axis=-2)
-        edges = torch.tensor((edges > 0).astype(float)).to(tensor.device)
-        return edges
+        return self.criterion(pred_edges, target_edges)
 
 class HybridLoss(nn.Module):
-    def __init__(self, alpha=0.5):
+    def __init__(self, alpha=0.7, beta=0.2, gamma=0.1):
         super().__init__()
         self.bce_loss = nn.BCEWithLogitsLoss()
         self.iou_loss = LogIoULoss()
-        self.alpha = alpha  # BCE와 IoU loss의 가중치 비율
+        self.edge_loss = EdgeLoss()
+        self.alpha = alpha  # BCE weight
+        self.beta = beta   # IoU weight
+        self.gamma = gamma # Edge weight
     
     def forward(self, pred, target):
         bce = self.bce_loss(pred, target)
         iou = self.iou_loss(pred, target)
-        return self.alpha * bce + (1 - self.alpha) * iou, bce, iou
+        edge = self.edge_loss(pred, target)
+        
+        total_loss = (self.alpha * bce + 
+                     self.beta * iou + 
+                     self.gamma * edge)
+        
+        return total_loss, bce, iou, edge
 
 
