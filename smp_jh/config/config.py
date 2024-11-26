@@ -19,7 +19,7 @@ class Config:
     VAL_EVERY = 1
     RANDOM_SEED = 21
 
-    IMG_SIZE = 1536
+    IMG_SIZE = 1024
 
     # Loss
     LOSS_TYPE = "bce" # [ "bce", "dice", "focal" ]
