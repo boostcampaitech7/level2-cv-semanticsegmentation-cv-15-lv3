@@ -457,7 +457,7 @@ class StratifiedXRayDataset(XRayDataset):
             print(f"{strata}: {prop:.1%}")
         print(f"{'='*50}\n")
     
-    # 임시
+    # train_set & validation_set list를 txt 파일로 저장하기 위한 코드
     def save_file_lists(self, output_dir="output_files"):
         """
         Train과 Validation 파일 리스트를 텍스트 파일로 저장
