@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+from scipy.ndimage import sobel
 
 class Loss:
     @staticmethod
@@ -69,6 +70,34 @@ class LogIoULoss(nn.Module):
         iou = (intersection + self.smooth) / (union + self.smooth)
         return -torch.log(iou).mean()  # Log-IOU Loss
 
+class EdgeLoss(nn.Module):
+    def __init__(self):
+        super(EdgeLoss, self).__init__()
+        self.bce_loss = nn.BCELoss()  # BCE Loss for edge comparison
+
+    def forward(self, pred, target):
+        # Extract edges from target and predicted labels
+        target_edges = self.get_edges(target)
+        pred_edges = self.get_edges(torch.argmax(pred, dim=1))
+
+        # Convert edges to float for loss calculation
+        pred_edges = pred_edges.float()
+        target_edges = target_edges.float()
+
+        # Compute Edge Loss (e.g., BCE)
+        edge_loss = self.bce_loss(pred_edges, target_edges)
+
+        return edge_loss
+
+    @staticmethod
+    def get_edges(tensor):
+        """
+        Apply Sobel filter to extract edges.
+        """
+        tensor = tensor.detach().cpu().numpy()
+        edges = sobel(tensor, axis=-1) + sobel(tensor, axis=-2)
+        edges = torch.tensor((edges > 0).astype(float)).to(tensor.device)
+        return edges
 
 class HybridLoss(nn.Module):
     def __init__(self, alpha=0.5):
