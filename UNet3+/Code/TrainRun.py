@@ -9,13 +9,13 @@ import torch.optim as optim
 from torch.utils.data import DataLoader
 
 
-from Model.HRnetModel import UNet3PlusHRNet
+from Model.HRnetModelReduce import UNet3PlusHRNet
 from DataSet.DataLoder import get_image_label_paths
 from config import IMAGE_ROOT,LABEL_ROOT,BATCH_SIZE,IMSIZE,CLASSES,MILESTONES,NUM_EPOCHS, GAMMA,LR, SAVED_DIR
 from DataSet.Dataset import XRayDataset
 from Loss.Loss import CombinedLoss
 from Util.DiscordAlam import send_discord_message
-from TrainMixedPrecision import train
+from NoMixedTrain import train
 # from Train import train
 
 from Util.SetSeed import set_seed
@@ -60,18 +60,18 @@ def main():
             
     
 
-    tf = A.Resize(IMSIZE,IMSIZE)
+    #tf = A.Resize(IMSIZE,IMSIZE)
     train_dataset = XRayDataset(
         train_filenames,
         train_labelnames,
-        transforms=tf,
+        transforms=None,
         is_train=True,
 
     )
     valid_dataset = XRayDataset(
         valid_filenames,
         valid_labelnames,
-        transforms=tf,
+        transforms=None,
         is_train=False,
     )
 
@@ -98,7 +98,7 @@ def main():
 
     # Optimizer 정의
     optimizer = optim.AdamW(params=model.parameters(), lr=LR, weight_decay=2e-6)
-    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer,mode='max',factor=0.3,patience=3,verbose=True)
+    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer,mode='max',factor=0.4,patience=5,verbose=True)
 
     send_discord_message("# 실험: IMGSIZE 320 mixed precision test")
     train(model, train_loader, valid_loader, criterion, optimizer, scheduler)

@@ -229,7 +229,7 @@ class CombinedLoss(nn.Module):
 
     def forward(self, logits, targets):
         focal = self.focal_loss(logits, targets) * self.focal_weight
-        dice = self.dice_loss(logits, targets) * self.dice_weight
+        dice = 0 #self.dice_loss(logits, targets) * self.dice_weight
         iou = self.iou_loss(logits, targets) * self.iou_weight
         #bce=self.bce_loss_fn(logits, targets)
         #gdl = self.gdl_loss(logits, targets) * self.gdl_weight
@@ -237,8 +237,8 @@ class CombinedLoss(nn.Module):
         # boundary = self.boundary_loss(logits, targets) * self.boundary_weight
         
         # Combined loss
-        total_loss = focal + dice + iou + ms_ssim #gdl
-        return total_loss, focal, iou, dice, ms_ssim #gdl
+        total_loss = focal  + iou  + ms_ssim #+ dice#gdl
+        return total_loss, focal, iou, ms_ssim  #dice#gdl
 
 
 '''

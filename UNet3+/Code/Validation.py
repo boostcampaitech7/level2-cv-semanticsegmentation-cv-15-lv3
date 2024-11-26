@@ -30,11 +30,11 @@ def validation(epoch, model, data_loader, criterion, thr=0.5):
                 outputs = F.interpolate(outputs, size=masks.shape[-2:], mode="bilinear", align_corners=False)
             
             # 손실 계산
-            batch_loss, batch_focal, batch_iou, batch_dice, batch_msssim = criterion(outputs, masks)
+            batch_loss, batch_focal, batch_iou, batch_msssim = criterion(outputs, masks)
             total_loss += batch_loss.item()
             total_focal += batch_focal.item()
             total_iou += batch_iou.item()
-            total_dice += batch_dice.item()
+            #total_dice += batch_dice.item()
             total_msssim += batch_msssim.item()
 
             num_samples += 1
@@ -52,7 +52,7 @@ def validation(epoch, model, data_loader, criterion, thr=0.5):
     avg_loss = total_loss / num_samples
     avg_focal = total_focal / num_samples
     avg_iou = total_iou / num_samples
-    avg_dice = total_dice / num_samples
+    #avg_dice = total_dice / num_samples
     avg_msssim = total_msssim / num_samples
 
     # Dice 평균 계산
@@ -70,6 +70,6 @@ def validation(epoch, model, data_loader, criterion, thr=0.5):
 
     # 최종 결과 출력
     print(f"Validation Completed: Avg Loss: {avg_loss:.4f}, Avg Dice: {avg_dice_score:.4f}")
-    print(f"Focal: {avg_focal:.4f}, IoU: {avg_iou:.4f}, Dice: {avg_dice:.4f}, MS-SSIM: {avg_msssim:.4f}")
+    print(f"Focal: {avg_focal:.4f}, IoU: {avg_iou:.4f}, MS-SSIM: {avg_msssim:.4f}") #Dice: {avg_dice:.4f}, MS-SSIM: {avg_msssim:.4f}
 
     return avg_dice_score

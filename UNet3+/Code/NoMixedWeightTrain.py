@@ -35,54 +35,56 @@ def train(model, data_loader, val_loader, criterion, optimizer, scheduler, accum
         optimizer.zero_grad()
 
         epoch_loss = 0
+        # Define loss weights for each output
+        weights = [0.45, 0.3, 0.15, 0.1]  # Example weights, adjust as needed
+
         for step, (images, masks) in enumerate(data_loader):
             images, masks = images.cuda(), masks.cuda()
 
             # Forward pass
-            outputs = model(images)
-            batch_loss, batch_focal, batch_iou, batch_msssim = criterion(outputs, masks)
-            
-            weighted_loss = batch_loss
-            loss = weighted_loss / accumulation_steps  # Loss normalization for accumulation
+            outputs = model(images)  # 모델 출력
+            loss, focal, iou, msssim = criterion(outputs, masks)
 
-            # Backward pass
+            # Normalize loss for gradient accumulation
             loss.backward()
-            print_loss = loss.item() * accumulation_steps  # De-normalize for logging
 
-            epoch_loss += print_loss
-
+            # Logging losses for current step
+            # Logging losses for current step
+            printloss=loss.item()
+            printfocal=focal.item()
+            printmsssim=msssim.item()
+            printiou=iou.item()
             # Gradient Accumulation Step
             if (step + 1) % accumulation_steps == 0 or (step + 1) == len(data_loader):
                 optimizer.step()
                 optimizer.zero_grad()
 
             # Logging every 80 steps
-            if (step + 1) % 80 == 0:
+            if (step + 1) % 80 == 0 or (step + 1) == len(data_loader):
                 print(
                     f'{datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")} | '
                     f'Epoch [{epoch+1}/{NUM_EPOCHS}], '
                     f'Step [{step+1}/{len(data_loader)}], '
-                    f'Loss: {round(print_loss, 4)} | '
-                    f'Focal: {round(batch_focal.item(), 4)}, '
-                    f'Msssim: {round(batch_msssim.item(), 4)}, '
-                    f'IoU: {round(batch_iou.item(), 4)}, '
-                    #f'Dice: {round(batch_dice.item(), 4)}'
+                    f'Total Loss: {round(printloss, 4)} | '
+                    f'Focal: {round(printfocal, 4)}, '
+                    f'MSSSIM: {round(printmsssim, 4)}, '
+                    f'IoU: {round(printiou, 4)}'
                 )
                 wandb.log({
-                    "Step Loss": print_loss,
-                    "Step Focal Loss": batch_focal.item(),
-                    "Step Msssim Loss": batch_msssim.item(),
-                    "Step IoU": batch_iou.item(),
-                    #"Step Dice": batch_dice.item(),
-                    #"Learning Rate": optimizer.param_groups[0]['lr']
+                    "Step Loss": printloss,
+                    "Step Focal Loss": printfocal,
+                    "Step MSSSIM Loss": printmsssim,
+                    "Step IoU": printiou,
                 }, step=global_step)
                 global_step += 1
 
+
+
         # 에폭 평균 loss 계산 및 로깅
-        avg_epoch_loss = epoch_loss / len(data_loader)
+        #avg_epoch_loss = epoch_loss / len(data_loader)
         wandb.log({
             "Epoch": epoch + 1,
-            "Train Loss": avg_epoch_loss,
+            #"Train Loss": avg_epoch_loss,
         }, step=global_step)
 
         # Validation 주기에 따른 Loss 출력 및 Best Model 저장

@@ -49,6 +49,7 @@ def train(model, data_loader, val_loader, criterion, optimizer, scheduler, accum
                 
                 weighted_loss = batch_loss
                 loss = weighted_loss
+                
 
             # Loss Scaling 및 Backpropagation
             scaler.scale(loss).backward()
