@@ -1,3 +1,4 @@
+import torch
 import torch.nn as nn
 
 class Loss:
@@ -44,20 +45,41 @@ class IoULoss(nn.Module):
         self.smooth = smooth
     
     def forward(self, pred, target):
+        pred = torch.sigmoid(pred)
+        
         intersection = (pred * target).sum(dim=(2, 3))
-        union = pred.sum(dim=(2, 3)) + target.sum(dim=(2, 3)) - intersection
+        total = (pred + target).sum(dim=(2, 3))
+        union = total - intersection
+        
         iou = (intersection + self.smooth) / (union + self.smooth)
         return 1 - iou.mean()
+
+class LogIoULoss(nn.Module):
+    def __init__(self, smooth=1e-6):
+        super().__init__()
+        self.smooth = smooth
+    
+    def forward(self, pred, target):
+        pred = torch.sigmoid(pred)
+        
+        intersection = (pred * target).sum(dim=(2, 3))
+        total = (pred + target).sum(dim=(2, 3))
+        union = total - intersection
+        
+        iou = (intersection + self.smooth) / (union + self.smooth)
+        return -torch.log(iou).mean()  # Log-IOU Loss
+
 
 class HybridLoss(nn.Module):
     def __init__(self, alpha=0.5):
         super().__init__()
         self.bce_loss = nn.BCEWithLogitsLoss()
-        self.iou_loss = IoULoss()
+        self.iou_loss = LogIoULoss()
         self.alpha = alpha  # BCE와 IoU loss의 가중치 비율
     
     def forward(self, pred, target):
         bce = self.bce_loss(pred, target)
         iou = self.iou_loss(pred, target)
         return self.alpha * bce + (1 - self.alpha) * iou, bce, iou
+
 
