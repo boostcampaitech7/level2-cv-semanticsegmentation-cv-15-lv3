@@ -17,6 +17,7 @@ from config.config import Config
 from dataset.transforms import Transforms
 from utils.metrics import dice_coef
 from utils.rle import encode_mask_to_rle
+from utils.postprocessing import AnatomicalPostProcessor
 
 def set_seed(seed):
     torch.manual_seed(seed)
@@ -141,11 +142,14 @@ class XRayDataset(Dataset):
         
         return torch.from_numpy(image).float(), torch.from_numpy(label).float(), os.path.basename(image_path)
 
-def validation(model, data_loader, device, threshold=0.5, save_gt=False):
+def validation(model, data_loader, device, threshold=0.5, save_gt=False, use_postprocessing=False):
     """Validation 함수"""
     val_start = time.time()
     if model is not None:
         model.eval()
+
+    # 후처리기 초기화
+    postprocessor = AnatomicalPostProcessor(threshold=threshold) if use_postprocessing else None
     
     dices = []
     pred_rles = []
@@ -161,6 +165,10 @@ def validation(model, data_loader, device, threshold=0.5, save_gt=False):
                     
                     # Forward pass
                     outputs = model(images)
+                    
+                    # Apply postprocessing if enabled
+                    if use_postprocessing:
+                        outputs = postprocessor(outputs)
                     
                     # Resize for dice calculation
                     output_h, output_w = outputs.size(-2), outputs.size(-1)
@@ -264,7 +272,8 @@ def main(args):
         
         # Validation 실행 및 결과 저장
         if args.save_gt:
-            pred_df = validation(model, valid_loader, device, args.threshold, save_gt=True)
+            pred_df = validation(model, valid_loader, device, args.threshold, save_gt=True,
+                                 use_postprocessing=args.postprocessing)
             gt_df = validation(None, valid_loader, device, args.threshold, save_gt=True)
             model_name = args.model_path.split('/')[-1]
             pred_df.to_csv(f"{model_name.split('.')[0]}_val.csv", index=False)
@@ -272,7 +281,8 @@ def main(args):
             print(f"\nPrediction results saved to {model_name.split('.')[0]}_val.csv")
             print(f"Ground truth results saved to val_gt.csv")
         else:
-            pred_df = validation(model, valid_loader, device, args.threshold)
+            pred_df = validation(model, valid_loader, device, args.threshold,
+                                 use_postprocessing=args.postprocessing)
             model_name = args.model_path.split('/')[-1]
             pred_df.to_csv(f"{model_name.split('.')[0]}_val.csv", index=False)
             print(f"\nResults saved to {model_name.split('.')[0]}_val.csv")
@@ -294,6 +304,8 @@ if __name__ == "__main__":
                         help='Threshold for binary prediction')
     parser.add_argument('--save_gt', action='store_true',
                         help='Save ground truth masks as separate CSV')
+    parser.add_argument('--postprocessing', action='store_true',
+                        help='Enable anatomical postprocessing')
     
     args = parser.parse_args()
     main(args)
