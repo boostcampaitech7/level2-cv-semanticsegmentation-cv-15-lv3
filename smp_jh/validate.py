@@ -290,10 +290,6 @@ def validation(model, data_loader, device, threshold=0.5, save_gt=False, use_pos
                     # Forward pass
                     outputs = model(images)
                     
-                    # Apply postprocessing if enabled
-                    if use_postprocessing:
-                        outputs = postprocessor(outputs)
-                    
                     # Resize for dice calculation
                     output_h, output_w = outputs.size(-2), outputs.size(-1)
                     mask_h, mask_w = masks.size(-2), masks.size(-1)
@@ -302,6 +298,20 @@ def validation(model, data_loader, device, threshold=0.5, save_gt=False, use_pos
                     
                     # Calculate dice score
                     outputs_sigmoid = torch.sigmoid(outputs)
+
+                    # Apply postprocessing if enabled (sigmoid 후에 적용)
+                    if use_postprocessing:
+                        outputs_before = outputs_sigmoid.clone()
+                        outputs_sigmoid = postprocessor(outputs_sigmoid)
+                        
+                        # 첫 번째 배치에 대해서만 시각화
+                        if idx == 0:
+                            postprocessor.visualize_postprocessing(
+                                outputs_sigmoid[0], 
+                                outputs_before[0],
+                                batch_idx=idx
+                            )
+
                     outputs_binary = (outputs_sigmoid > threshold)
                     dice = dice_coef(outputs_binary, masks)
                     dices.append(dice.detach().cpu())
