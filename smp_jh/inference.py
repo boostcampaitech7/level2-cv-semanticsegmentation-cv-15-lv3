@@ -11,7 +11,7 @@ from dataset.dataset import XRayInferenceDataset
 from utils.rle import encode_mask_to_rle
 from dataset.transforms import Transforms  # Transforms 클래스 import
 
-def test(model, data_loader, thr=0.5):
+def test(model, data_loader, thr=0.6):
     model = model.cuda()
     model.eval()
 
@@ -68,7 +68,7 @@ def main():
     })
     
     # CSV 저장
-    df.to_csv("submission.csv", index=False)
+    df.to_csv("hybridloss_512.csv", index=False)
 
 if __name__ == "__main__":
     main()

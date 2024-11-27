@@ -50,6 +50,10 @@ def validation(epoch, model, data_loader, criterion, device, threshold=0.5):
     model.eval()
     
     total_loss = 0
+    total_focal_loss = 0
+    total_msssim_loss = 0
+    total_iou_loss = 0
+
     dices = []
     
     with torch.no_grad():
@@ -73,8 +77,11 @@ def validation(epoch, model, data_loader, criterion, device, threshold=0.5):
                 outputs = F.interpolate(outputs, size=(mask_h, mask_w), mode="bilinear")
         
             # Calculate loss
-            loss = criterion(outputs, masks)
+            loss, focal_loss, ms_ssim_loss, iou_loss = criterion(outputs, masks)
             total_loss += loss.item()
+            total_focal_loss += focal_loss.item()
+            total_msssim_loss += ms_ssim_loss.item()
+            total_iou_loss += iou_loss.item()
         
             # Calculate dice score
             outputs = torch.sigmoid(outputs)
@@ -87,9 +94,13 @@ def validation(epoch, model, data_loader, criterion, device, threshold=0.5):
                 print(
                     f'{datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")} | '
                     f'Step [{step+1}/{len(data_loader)}], '
-                    f'Loss: {round(loss.item(),4)}, '
+                    f'Hybrid Loss: {round(loss.item(),4)}, '
+                    f'focal Loss: {round(focal_loss.item(),4)}, '
+                    f'msssim Loss: {round(ms_ssim_loss.item(),4)}, '
+                    f'iou Loss: {round(iou_loss.item(),4)}, '
                     f'Dice: {round(torch.mean(dice).item(),4)}'
                 )
+                
     
     # Calculate validation time
     val_time = time.time() - val_start
@@ -108,10 +119,16 @@ def validation(epoch, model, data_loader, criterion, device, threshold=0.5):
     # Calculate average metrics
     avg_dice = torch.mean(dices_per_class).item()
     avg_loss = total_loss / len(data_loader)
+    avg_focal_loss = total_focal_loss / len(data_loader)
+    avg_msssim_loss = total_msssim_loss / len(data_loader)
+    avg_iou_loss = total_iou_loss / len(data_loader)
     
     # Print summary
     print(f"Average Dice: {avg_dice:.4f}")
-    print(f"Validation Loss: {avg_loss:.4f}")
+    print(f"Validation hybrid Loss: {avg_loss:.4f}")
+    print(f"Validation focal Loss: {avg_focal_loss:.4f}")
+    print(f"Validation msssim Loss: {avg_msssim_loss:.4f}")
+    print(f"Validation iou Loss: {avg_iou_loss:.4f}")
     print(f"Validation Time: {datetime.timedelta(seconds=val_time)}\n")
     
     # Create class-wise dice dictionary
@@ -129,13 +146,18 @@ def train():
     init_wandb()
 
     # Device 설정
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    cuda_number = 1
+    torch.cuda.set_device(cuda_number)
+    device = torch.device(f'cuda:{cuda_number}' if torch.cuda.is_available() else 'cpu')
+    print(f"is_available cuda : {torch.cuda.is_available()}")
+    print(f"current use : cuda({torch.cuda.current_device()})\n")
     
     # Mixed precision training
     scaler = GradScaler()
 
     # 모델 준비
     model = get_model(num_classes=len(Config.CLASSES)).to(device)
+
     criterion = Loss.get_criterion(Config.LOSS_TYPE)
     optimizer = optim.AdamW(
         params=model.parameters(), 
@@ -162,6 +184,7 @@ def train():
     #     is_train=False,
     #     transforms=Transforms.get_valid_transform()
     # )
+
     train_dataset = StratifiedXRayDataset(
         image_root=Config.TRAIN_IMAGE_ROOT,
         label_root=Config.TRAIN_LABEL_ROOT,
@@ -192,6 +215,7 @@ def train():
         pin_memory=True,
         drop_last=True,
     )
+    # train_dataset.save_file_lists(output_dir="output_lists")
     
     valid_loader = DataLoader(
         dataset=valid_dataset,
@@ -201,6 +225,7 @@ def train():
         pin_memory=True,
         drop_last=False
     )
+    # valid_dataset.save_file_lists(output_dir="output_lists")
     
     # Training loop
     patience = 10 # 조기 종료 횟수
@@ -212,14 +237,20 @@ def train():
         epoch_start = time.time()
         model.train()
         epoch_loss = 0
-        
+        epoch_focal_loss = 0
+        epoch_msssim_loss = 0
+        epoch_iou_loss = 0
+
         for step, (images, masks) in enumerate(train_loader):
             images = images.to(device)
+            # print(images.shape)
+            # assert False
             masks = masks.to(device)
             
             with autocast(enabled=True):
                 outputs = model(images)
-                loss = criterion(outputs, masks)
+                
+                loss, focal_loss, ms_ssim_loss, iou_loss = criterion(outputs, masks)
             
             optimizer.zero_grad()
             scaler.scale(loss).backward()
@@ -227,13 +258,20 @@ def train():
             scaler.update()
 
             epoch_loss += loss.item()
+            epoch_focal_loss += focal_loss.item()
+            epoch_msssim_loss += ms_ssim_loss.item()
+            epoch_iou_loss += iou_loss.item()
+
             
             if (step + 1) % 25 == 0:
                 print(
                     f'{datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")} | '
                     f'Epoch [{epoch+1}/{Config.NUM_EPOCHS}], '
                     f'Step [{step+1}/{len(train_loader)}], '
-                    f'Loss: {round(loss.item(),4)}'
+                    f'hybrid Loss: {round(loss.item(),4)} '
+                    f'focal Loss: {round(focal_loss.item(),4)} '
+                    f'ms-ssim Loss: {round(ms_ssim_loss.item(),4)} '
+                    f'iou Loss: {round(iou_loss.item(),4)} '
                 )
                 wandb.log({
                     "Step Loss": loss.item(),
@@ -246,6 +284,9 @@ def train():
 
         # 평균 loss 계산 및 출력
         avg_epoch_loss = epoch_loss / len(train_loader)
+        avg_epoch_focal_loss = epoch_focal_loss / len(train_loader)
+        avg_epoch_msssim_loss = epoch_msssim_loss / len(train_loader)
+        avg_epoch_iou_loss = epoch_iou_loss / len(train_loader)
         print("Epoch {}, Train Loss: {:.4f} || Elapsed time: {} || ETA: {}\n".format(
             epoch + 1,
             avg_epoch_loss,
@@ -257,7 +298,10 @@ def train():
         # Epoch 단위 로깅
         wandb.log({
             "Epoch": epoch + 1,
-            "Train Loss": avg_epoch_loss,
+            "Train Hybrid Loss": avg_epoch_loss,
+            "Train focal Loss": avg_epoch_focal_loss,
+            "Train msssim Loss": avg_epoch_msssim_loss,
+            "Train iou Loss": avg_epoch_iou_loss,
         }, step=global_step)
         
         if (epoch + 1) % Config.VAL_EVERY == 0:

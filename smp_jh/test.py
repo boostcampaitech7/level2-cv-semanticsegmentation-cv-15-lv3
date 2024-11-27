@@ -141,7 +141,7 @@ class XRayDataset(Dataset):
         
         return torch.from_numpy(image).float(), torch.from_numpy(label).float(), os.path.basename(image_path)
 
-def validation(model, data_loader, device, threshold=0.5, save_gt=False):
+def validation(model, data_loader, device, threshold=0.45, save_gt=False):
     """Validation 함수"""
     val_start = time.time()
     if model is not None:
@@ -290,7 +290,7 @@ if __name__ == "__main__":
                         help='Path to the model checkpoint (optional)')
     parser.add_argument('--batch_size', type=int, default=4,
                         help='Validation batch size')
-    parser.add_argument('--threshold', type=float, default=0.55,
+    parser.add_argument('--threshold', type=float, default=0.5,
                         help='Threshold for binary prediction')
     parser.add_argument('--save_gt', action='store_true',
                         help='Save ground truth masks as separate CSV')

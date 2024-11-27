@@ -19,8 +19,10 @@ class Config:
     VAL_EVERY = 1
     RANDOM_SEED = 21
 
+    IMG_SIZE = 512
+
     # Loss
-    LOSS_TYPE = "bce" # [ "bce", "dice", "focal" ]
+    LOSS_TYPE = "hybrid" # [ "bce", "dice", "focal" ]
 
     # Scheduler
     # train.py 에서 주석을 풀어야 사용 가능 아직 적용 x
@@ -28,10 +30,10 @@ class Config:
     MIN_LR = 1e-6
     
     WANDB = {
-        "api_key": "your_api_key",
+        "api_key": "fdd41cd76bf1a14ef62fe773d75c95eaaee3a604",
         "project_name": "Hand_bone_segmentation",
-        "experiment_detail": f"{MODEL_ARCHITECTURE}_{ENCODER_NAME}_batch{TRAIN_BATCH_SIZE}_{NUM_EPOCHS}ep",
-        "model_name": MODEL_ARCHITECTURE,
+        "experiment_detail": f"{MODEL_ARCHITECTURE}_{ENCODER_NAME}_{LOSS_TYPE}_sum_gamma",
+        "model_name": f"{MODEL_ARCHITECTURE}"
     }
 
     # Paths
