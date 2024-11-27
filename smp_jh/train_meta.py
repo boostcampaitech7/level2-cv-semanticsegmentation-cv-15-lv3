@@ -162,13 +162,24 @@ def train():
     #     is_train=False,
     #     transforms=Transforms.get_valid_transform()
     # )
-    train_dataset = StratifiedXRayDataset(
+    train_dataset_ori = StratifiedXRayDataset(
         image_root=Config.TRAIN_IMAGE_ROOT,
         label_root=Config.TRAIN_LABEL_ROOT,
         is_train=True,
-        transforms=Transforms.get_train_transform(),
+        transforms=Transforms.get_train_ori(),
         meta_path=Config.META_PATH  # config에 META_PATH 추가 필요
     )
+
+    train_dataset_transformed = StratifiedXRayDataset(
+    image_root=Config.TRAIN_IMAGE_ROOT,
+    label_root=Config.TRAIN_LABEL_ROOT,
+    is_train=True,
+    transforms=Transforms.get_train_transform(),
+    meta_path=Config.META_PATH  # config에 META_PATH 추가 필요
+    )
+
+    # 원본 + 증강
+    train_dataset = train_dataset_ori + train_dataset_transformed
     
     valid_dataset = StratifiedXRayDataset(
         image_root=Config.TRAIN_IMAGE_ROOT,
@@ -265,11 +276,11 @@ def train():
                 epoch + 1, model, valid_loader, criterion, device, threshold=0.5
             )
 
-            # # Scheduler step 추가
-            # if Config.SCHEDULER_TYPE == "reduce":
-            #     scheduler.step(dice)  # ReduceLROnPlateau는 metric을 전달
-            # else:
-            #     scheduler.step()      # 다른 스케줄러들은 단순히 step
+            # Scheduler step 추가
+            if Config.SCHEDULER_TYPE == "reduce":
+                scheduler.step(dice)  # ReduceLROnPlateau는 metric을 전달
+            else:
+                scheduler.step()      # 다른 스케줄러들은 단순히 step
             
             # Validation 결과 로깅
             wandb.log({
