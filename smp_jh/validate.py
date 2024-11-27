@@ -215,6 +215,55 @@ class StratifiedXRayDataset(XRayDataset):
     def __getitem__(self, item):
         # XRayDataset의 메서드 재사용
         return super().__getitem__(item)
+    
+    def print_dataset_stats(self):
+        """데이터셋의 통계 정보를 출력"""
+        # ID 폴더별 이미지 수
+        id_counts = {}
+        for fname in self.filenames:
+            id_folder = os.path.dirname(fname).split('/')[-1]
+            id_counts[id_folder] = id_counts.get(id_folder, 0) + 1
+        
+        # Strata 분포
+        strata_counts = {}
+        for fname in self.filenames:
+            id_folder = os.path.dirname(fname).split('/')[-1]
+            strata = self.meta_df[self.meta_df['ID'] == id_folder]['Strata'].iloc[0]
+            strata_counts[strata] = strata_counts.get(strata, 0) + 1
+        
+        print(f"\nDataset Statistics ({'Train' if self.is_train else 'Validation'}):")
+        print("-" * 50)
+        print(f"Total images: {len(self.filenames)}")
+        print(f"Total unique IDs: {len(id_counts)}")
+        print("\nImages per ID:")
+        for id_folder, count in sorted(id_counts.items()):
+            print(f"{id_folder}: {count}")
+        
+        print("\nStrata Distribution:")
+        for strata, count in sorted(strata_counts.items()):
+            print(f"{strata}: {count} ({count/len(self.filenames)*100:.1f}%)")
+            
+        # Gender distribution
+        gender_counts = {}
+        for fname in self.filenames:
+            id_folder = os.path.dirname(fname).split('/')[-1]
+            gender = self.meta_df[self.meta_df['ID'] == id_folder]['Gender'].iloc[0]
+            gender_counts[gender] = gender_counts.get(gender, 0) + 1
+            
+        print("\nGender Distribution:")
+        for gender, count in sorted(gender_counts.items()):
+            print(f"{gender}: {count} ({count/len(self.filenames)*100:.1f}%)")
+            
+        # Height quartile distribution
+        height_counts = {}
+        for fname in self.filenames:
+            id_folder = os.path.dirname(fname).split('/')[-1]
+            height_q = self.meta_df[self.meta_df['ID'] == id_folder]['Height_Quartile'].iloc[0]
+            height_counts[height_q] = height_counts.get(height_q, 0) + 1
+            
+        print("\nHeight Quartile Distribution:")
+        for q, count in sorted(height_counts.items()):
+            print(f"{q}: {count} ({count/len(self.filenames)*100:.1f}%)")
 
 def validation(model, data_loader, device, threshold=0.5, save_gt=False):
     """Validation 함수"""
@@ -323,6 +372,9 @@ def main(args):
         transforms=Transforms.get_valid_transform(),
         meta_path=Config.META_PATH
     )
+
+    # 데이터셋 통계 출력
+    valid_dataset.print_dataset_stats()
     
     # DataLoader
     valid_loader = DataLoader(
@@ -364,7 +416,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--model_path', type=str, default=None,
                         help='Path to the model checkpoint (optional)')
-    parser.add_argument('--batch_size', type=int, default=4,
+    parser.add_argument('--batch_size', type=int, default=2,
                         help='Validation batch size')
     parser.add_argument('--threshold', type=float, default=0.5,
                         help='Threshold for binary prediction')
