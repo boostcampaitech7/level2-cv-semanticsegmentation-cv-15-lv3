@@ -26,18 +26,6 @@ def clean_dataset():
         transforms=None,
         meta_path=Config.META_PATH
     )
-
-    # 수정 전 시각화
-    print("\nSaving visualization before cleaning...")
-    os.makedirs("visualization/before", exist_ok=True)
-    
-    print("\nChecking train dataset annotations before cleaning...")
-    train_dataset.visualize_annotation("ID058", "image1661392103627.png", save_dir="visualization/before/train")
-    train_dataset.visualize_annotation("ID363", "image1664935962797.png", save_dir="visualization/before/train")
-    
-    print("\nChecking validation dataset annotations before cleaning...")
-    valid_dataset.visualize_annotation("ID058", "image1661392103627.png", save_dir="visualization/before/valid")
-    valid_dataset.visualize_annotation("ID363", "image1664935962797.png", save_dir="visualization/before/valid")
     
     # 클렌징 작업 수행
     print("\nPerforming dataset cleaning...")
@@ -48,11 +36,6 @@ def clean_dataset():
         id_folder="ID058",
         image_name="image1661392103627.png"
     )
-    train_dataset.remove_specific_mask(
-        id_folder="ID363",
-        image_name="image1664935962797.png",
-        label_to_remove="finger-14"
-    )
     
     # Validation 데이터셋 클렌징
     print("\nCleaning validation dataset...")
@@ -60,33 +43,14 @@ def clean_dataset():
         id_folder="ID058",
         image_name="image1661392103627.png"
     )
-    valid_dataset.remove_specific_mask(
-        id_folder="ID363",
-        image_name="image1664935962797.png",
-        label_to_remove="finger-14"
-    )
-    
-    # 수정 후 시각화
-    print("\nSaving visualization after cleaning...")
-    os.makedirs("visualization/after", exist_ok=True)
-    
-    print("\nChecking train dataset annotations after cleaning...")
-    train_dataset.visualize_annotation("ID058", "image1661392103627.png", save_dir="visualization/after/train")
-    train_dataset.visualize_annotation("ID363", "image1664935962797.png", save_dir="visualization/after/train")
-    
-    print("\nChecking validation dataset annotations after cleaning...")
-    valid_dataset.visualize_annotation("ID058", "image1661392103627.png", save_dir="visualization/after/valid")
-    valid_dataset.visualize_annotation("ID363", "image1664935962797.png", save_dir="visualization/after/valid")
     
     # 클렌징 결과 확인
     print("\nVerifying cleaned annotations...")
     print("\nTrain dataset:")
     train_dataset.clean_image_annotations("ID058", "image1661392103627.png")
-    train_dataset.clean_image_annotations("ID363", "image1664935962797.png")
     
     print("\nValidation dataset:")
     valid_dataset.clean_image_annotations("ID058", "image1661392103627.png")
-    valid_dataset.clean_image_annotations("ID363", "image1664935962797.png")
     
     print("\nData cleansing completed!")
     print("Please check the visualization folders to verify the changes.")
