@@ -73,7 +73,7 @@ def validation(epoch, model, data_loader, criterion, device, threshold=0.5):
                 outputs = F.interpolate(outputs, size=(mask_h, mask_w), mode="bilinear")
         
             # Calculate loss
-            loss = criterion(outputs, masks)
+            loss, focal, ms_ssim, iou = criterion(outputs, masks)
             total_loss += loss.item()
         
             # Calculate dice score
@@ -88,6 +88,9 @@ def validation(epoch, model, data_loader, criterion, device, threshold=0.5):
                     f'{datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")} | '
                     f'Step [{step+1}/{len(data_loader)}], '
                     f'Loss: {round(loss.item(),4)}, '
+                    f'Focal: {round(focal.item(),4)}, ' 
+                    f'MS-SSIM: {round(ms_ssim.item(),4)}, '
+                    f'IoU: {round(iou.item(),4)}, '
                     f'Dice: {round(torch.mean(dice).item(),4)}'
                 )
     
@@ -148,20 +151,15 @@ def train():
         min_lr=Config.MIN_LR
     )
     
-    # 데이터셋 준비
-    # train_dataset = XRayDataset(
+    # # 데이터셋 준비
+    # train_dataset = StratifiedXRayDataset(
     #     image_root=Config.TRAIN_IMAGE_ROOT,
     #     label_root=Config.TRAIN_LABEL_ROOT,
     #     is_train=True,
-    #     transforms=Transforms.get_train_transform()
+    #     transforms=Transforms.get_train_transform(),
+    #     meta_path=Config.META_PATH  # config에 META_PATH 추가 필요
     # )
-    
-    # valid_dataset = XRayDataset(
-    #     image_root=Config.TRAIN_IMAGE_ROOT,
-    #     label_root=Config.TRAIN_LABEL_ROOT,
-    #     is_train=False,
-    #     transforms=Transforms.get_valid_transform()
-    # )
+
     train_dataset_ori = StratifiedXRayDataset(
         image_root=Config.TRAIN_IMAGE_ROOT,
         label_root=Config.TRAIN_LABEL_ROOT,
@@ -180,7 +178,7 @@ def train():
 
     # 원본 + 증강
     train_dataset = train_dataset_ori + train_dataset_transformed
-    
+
     valid_dataset = StratifiedXRayDataset(
         image_root=Config.TRAIN_IMAGE_ROOT,
         label_root=Config.TRAIN_LABEL_ROOT,
@@ -188,11 +186,6 @@ def train():
         transforms=Transforms.get_valid_transform(),
         meta_path=Config.META_PATH
     )
-
-    # 데이터셋 통계 출력 (콘솔)
-    print("\nDataset Statistics:")
-    train_dataset.print_dataset_stats()
-    valid_dataset.print_dataset_stats()
     
     # DataLoader
     train_loader = DataLoader(
@@ -214,23 +207,25 @@ def train():
     )
     
     # Training loop
-    patience = 10 # 조기 종료 횟수
+    patience = 50 # 조기 종료 횟수
     counter = 0 # 조기 종료 카운터
     best_dice = 0.
     global_step = 0  # 전역 step 카운터 추가
 
     for epoch in range(Config.NUM_EPOCHS):
+        # torch.cuda.empty_cache()
         epoch_start = time.time()
         model.train()
         epoch_loss = 0
         
         for step, (images, masks) in enumerate(train_loader):
+            # torch.cuda.empty_cache()
             images = images.to(device)
             masks = masks.to(device)
             
             with autocast(enabled=True):
                 outputs = model(images)
-                loss = criterion(outputs, masks)
+                loss, focal, ms_ssim, iou = criterion(outputs, masks)
             
             optimizer.zero_grad()
             scaler.scale(loss).backward()
@@ -244,10 +239,16 @@ def train():
                     f'{datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")} | '
                     f'Epoch [{epoch+1}/{Config.NUM_EPOCHS}], '
                     f'Step [{step+1}/{len(train_loader)}], '
-                    f'Loss: {round(loss.item(),4)}'
+                    f'Loss: {round(loss.item(),4)}, '
+                    f'Focal: {round(focal.item(),4)}, '
+                    f'MS-SSIM: {round(ms_ssim.item(),4)}, '
+                    f'IoU: {round(iou.item(),4)}'
                 )
                 wandb.log({
                     "Step Loss": loss.item(),
+                    "Focal": focal.item(),
+                    "IoU": iou.item(),
+                    "MS-SSIM": ms_ssim.item(),
                     "Learning Rate": optimizer.param_groups[0]['lr']
                 }, step=global_step)
                 global_step += 1

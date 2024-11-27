@@ -12,7 +12,7 @@ import time
 import cv2
 import random
 from glob import glob
-from sklearn.model_selection import GroupKFold
+from sklearn.model_selection import GroupKFold, StratifiedGroupKFold
 from config.config import Config
 from dataset.transforms import Transforms
 from utils.metrics import dice_coef
@@ -141,6 +141,130 @@ class XRayDataset(Dataset):
         label = label.transpose(2, 0, 1)
         
         return torch.from_numpy(image).float(), torch.from_numpy(label).float(), os.path.basename(image_path)
+    
+class StratifiedXRayDataset(XRayDataset):
+    def __init__(self, image_root, label_root=None, is_train=True, transforms=None, meta_path=None):
+        self.is_train = is_train
+        self.transforms = transforms
+        self.CLASS2IND = Config.CLASS2IND
+        self.image_root = image_root
+        self.label_root = label_root
+        
+        # Get PNG and JSON files
+        self.pngs = self._get_pngs()
+        self.jsons = self._get_jsons() if label_root else None
+        
+        if label_root:
+            # Verify matching between pngs and jsons
+            jsons_fn_prefix = {os.path.splitext(fname)[0] for fname in self.jsons}
+            pngs_fn_prefix = {os.path.splitext(fname)[0] for fname in self.pngs}
+            assert len(jsons_fn_prefix - pngs_fn_prefix) == 0, "Some JSON files don't have matching PNGs"
+            assert len(pngs_fn_prefix - jsons_fn_prefix) == 0, "Some PNG files don't have matching JSONs"
+        
+        # Load meta data
+        self.meta_df = pd.read_excel(meta_path)
+        self.meta_df = self.meta_df.drop('Unnamed: 5', axis=1)
+        self.meta_df['ID'] = self.meta_df.index.map(lambda x: f"ID{str(x+1).zfill(3)}")
+        self.meta_df['Gender'] = self.meta_df['성별'].apply(lambda x: 'Female' if '여' in str(x) else 'Male')
+        self.meta_df = self.meta_df.rename(columns={'키(신장)': 'Height'})
+        
+        # Create height quartiles and strata
+        self.meta_df['Height_Quartile'] = pd.qcut(self.meta_df['Height'], q=4, labels=['Q1', 'Q2', 'Q3', 'Q4'])
+        self.meta_df['Strata'] = self.meta_df['Gender'] + '_' + self.meta_df['Height_Quartile'].astype(str)
+        
+        # Split dataset
+        _filenames = np.array(self.pngs)
+        _labelnames = np.array(self.jsons) if self.jsons else None
+        
+        # Get groups and strata
+        groups = [os.path.dirname(fname) for fname in _filenames]
+        image_strata = []
+        for fname in _filenames:
+            id_folder = os.path.dirname(fname).split('/')[-1]
+            strata = self.meta_df[self.meta_df['ID'] == id_folder]['Strata'].iloc[0]
+            image_strata.append(strata)
+        
+        # StratifiedGroupKFold 사용
+        sgkf = StratifiedGroupKFold(n_splits=5, shuffle=True, random_state=42)
+        
+        # 첫 번째 fold를 사용
+        for fold_idx, (train_idx, val_idx) in enumerate(sgkf.split(_filenames, y=image_strata, groups=groups)):
+            if fold_idx == 0:  # 첫 번째 fold만 사용
+                if is_train:
+                    filenames = list(_filenames[train_idx])
+                    labelnames = list(_labelnames[train_idx]) if _labelnames is not None else []
+                else:
+                    filenames = list(_filenames[val_idx])
+                    labelnames = list(_labelnames[val_idx]) if _labelnames is not None else []
+                break
+        
+        self.filenames = filenames
+        self.labelnames = labelnames
+
+    def _get_pngs(self):
+        # XRayDataset의 메서드 재사용
+        return super()._get_pngs()
+    
+    def _get_jsons(self):
+        # XRayDataset의 메서드 재사용
+        return super()._get_jsons()
+    
+    def __len__(self):
+        # XRayDataset의 메서드 재사용
+        return super().__len__()
+    
+    def __getitem__(self, item):
+        # XRayDataset의 메서드 재사용
+        return super().__getitem__(item)
+    
+    def print_dataset_stats(self):
+        """데이터셋의 통계 정보를 출력"""
+        # ID 폴더별 이미지 수
+        id_counts = {}
+        for fname in self.filenames:
+            id_folder = os.path.dirname(fname).split('/')[-1]
+            id_counts[id_folder] = id_counts.get(id_folder, 0) + 1
+        
+        # Strata 분포
+        strata_counts = {}
+        for fname in self.filenames:
+            id_folder = os.path.dirname(fname).split('/')[-1]
+            strata = self.meta_df[self.meta_df['ID'] == id_folder]['Strata'].iloc[0]
+            strata_counts[strata] = strata_counts.get(strata, 0) + 1
+        
+        print(f"\nDataset Statistics ({'Train' if self.is_train else 'Validation'}):")
+        print("-" * 50)
+        print(f"Total images: {len(self.filenames)}")
+        print(f"Total unique IDs: {len(id_counts)}")
+        print("\nImages per ID:")
+        for id_folder, count in sorted(id_counts.items()):
+            print(f"{id_folder}: {count}")
+        
+        print("\nStrata Distribution:")
+        for strata, count in sorted(strata_counts.items()):
+            print(f"{strata}: {count} ({count/len(self.filenames)*100:.1f}%)")
+            
+        # Gender distribution
+        gender_counts = {}
+        for fname in self.filenames:
+            id_folder = os.path.dirname(fname).split('/')[-1]
+            gender = self.meta_df[self.meta_df['ID'] == id_folder]['Gender'].iloc[0]
+            gender_counts[gender] = gender_counts.get(gender, 0) + 1
+            
+        print("\nGender Distribution:")
+        for gender, count in sorted(gender_counts.items()):
+            print(f"{gender}: {count} ({count/len(self.filenames)*100:.1f}%)")
+            
+        # Height quartile distribution
+        height_counts = {}
+        for fname in self.filenames:
+            id_folder = os.path.dirname(fname).split('/')[-1]
+            height_q = self.meta_df[self.meta_df['ID'] == id_folder]['Height_Quartile'].iloc[0]
+            height_counts[height_q] = height_counts.get(height_q, 0) + 1
+            
+        print("\nHeight Quartile Distribution:")
+        for q, count in sorted(height_counts.items()):
+            print(f"{q}: {count} ({count/len(self.filenames)*100:.1f}%)")
 
 def validation(model, data_loader, device, threshold=0.5, save_gt=False, use_postprocessing=False):
     """Validation 함수"""
@@ -249,12 +373,16 @@ def main(args):
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     
     # 데이터셋 준비
-    valid_dataset = XRayDataset(
+    valid_dataset = StratifiedXRayDataset(
         image_root=Config.TRAIN_IMAGE_ROOT,
         label_root=Config.TRAIN_LABEL_ROOT,
         is_train=False,
-        transforms=Transforms.get_valid_transform()
+        transforms=Transforms.get_valid_transform(),
+        meta_path=Config.META_PATH
     )
+
+    # 데이터셋 통계 출력
+    valid_dataset.print_dataset_stats()
     
     # DataLoader
     valid_loader = DataLoader(
@@ -298,7 +426,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--model_path', type=str, default=None,
                         help='Path to the model checkpoint (optional)')
-    parser.add_argument('--batch_size', type=int, default=4,
+    parser.add_argument('--batch_size', type=int, default=2,
                         help='Validation batch size')
     parser.add_argument('--threshold', type=float, default=0.5,
                         help='Threshold for binary prediction')
