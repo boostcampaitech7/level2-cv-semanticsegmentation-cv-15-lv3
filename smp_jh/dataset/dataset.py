@@ -315,3 +315,209 @@ class StratifiedXRayDataset(XRayDataset):
                 for file_name in self.filenames:
                     f.write(f"{file_name}\n")
             print(f"Validation file list saved to {val_file_path}")
+
+    def get_image_info(self, id_folder, image_name=None):
+        """
+        특정 ID 폴더의 이미지 정보를 반환
+        Args:
+            id_folder (str): ID 폴더명 (예: 'ID001')
+            image_name (str, optional): 특정 이미지 파일명. None이면 해당 ID의 모든 이미지 반환
+        Returns:
+            dict: 이미지 정보를 담은 딕셔너리
+        """
+        matching_files = []
+        for fname in self.filenames:
+            if id_folder in fname:
+                if image_name is None or image_name in fname:
+                    matching_files.append({
+                        'image_path': os.path.join(self.image_root, fname),
+                        'label_path': os.path.join(self.label_root, self.labelnames[self.filenames.index(fname)])
+                        if self.label_root else None
+                    })
+        
+        return matching_files
+
+    def clean_image_annotations(self, id_folder, image_name=None):
+        """
+        특정 ID 폴더의 이미지 어노테이션을 검사하고 문제점을 보고
+        Args:
+            id_folder (str): ID 폴더명 (예: 'ID001')
+            image_name (str, optional): 특정 이미지 파일명
+        """
+        images = self.get_image_info(id_folder, image_name)
+        
+        for img_info in images:
+            print(f"\nChecking: {img_info['image_path']}")
+            
+            # 이미지 체크
+            if not os.path.exists(img_info['image_path']):
+                print(f"Warning: Image file does not exist")
+                continue
+                
+            image = cv2.imread(img_info['image_path'])
+            if image is None:
+                print(f"Error: Cannot read image file")
+                continue
+                
+            # 라벨 체크
+            if img_info['label_path'] and os.path.exists(img_info['label_path']):
+                with open(img_info['label_path'], 'r') as f:
+                    try:
+                        annotations = json.load(f)['annotations']
+                        
+                        # 어노테이션 유효성 검사
+                        for ann in annotations:
+                            if 'label' not in ann:
+                                print(f"Error: Missing label in annotation")
+                            if 'points' not in ann:
+                                print(f"Error: Missing points in annotation")
+                            else:
+                                points = np.array(ann['points'])
+                                if points.size == 0:
+                                    print(f"Error: Empty points array for label {ann.get('label', 'unknown')}")
+                                if points.shape[1] != 2:
+                                    print(f"Error: Invalid points format for label {ann.get('label', 'unknown')}")
+                            
+                            # 클래스 확인
+                            if ann.get('label') not in self.CLASS2IND:
+                                print(f"Error: Invalid class label: {ann.get('label')}")
+                        
+                        print(f"Found {len(annotations)} valid annotations")
+                        
+                    except json.JSONDecodeError:
+                        print(f"Error: Invalid JSON format in label file")
+            else:
+                print(f"Warning: Label file not found")
+
+    def fix_specific_annotation(self, id_folder="ID058", image_name="image1661392103627.png"):
+        """
+        특정 이미지의 어노테이션 수정
+        """
+        # 라벨 수정 매핑
+        label_mapping = {
+            'finger-1': 'finger-3',
+            'finger-3': 'finger-1',
+            'Hamate': 'Trapezium',
+            'Capitate': 'Trapezoid',
+            'Trapezoid': 'Capitate',
+            'Trapezium': 'Hamate',
+            'Pisiform': 'Scaphoid',
+            'Triquetrum': 'Lunate',
+            'Scaphoid': 'Triquetrum',
+            'Lunate': 'Pisiform',
+            'Radius': 'Ulna',
+            'Ulna': 'Radius'
+        }
+
+        # 이미지 정보 가져오기
+        images = self.get_image_info(id_folder, image_name)
+        
+        if not images:
+            print(f"Error: Image not found for {id_folder}/{image_name}")
+            return
+        
+        label_path = images[0]['label_path']
+        
+        if not os.path.exists(label_path):
+            print(f"Error: Label file not found at {label_path}")
+            return
+        
+        # 백업 파일 생성
+        backup_path = label_path + '.backup'
+        if not os.path.exists(backup_path):
+            import shutil
+            shutil.copy2(label_path, backup_path)
+            print(f"Created backup at {backup_path}")
+        
+        # 현재 라벨 확인을 위한 디버깅 출력 추가
+        try:
+            with open(label_path, 'r') as f:
+                data = json.load(f)
+                print("\nCurrent labels in the file:")
+                current_labels = set(ann['label'] for ann in data['annotations'])
+                print(current_labels)
+                
+                # 어노테이션 수정
+                modified = False
+                for ann in data['annotations']:
+                    old_label = ann['label']
+                    if old_label in label_mapping:
+                        print(f"Changing label: {old_label} -> {label_mapping[old_label]}")
+                        ann['label'] = label_mapping[old_label]
+                        modified = True
+                
+                if modified:
+                    # 수정된 내용 저장
+                    with open(label_path, 'w') as f:
+                        json.dump(data, f, indent=4)
+                    print(f"Successfully updated annotations in {label_path}")
+                else:
+                    print("No modifications were needed")
+                    
+        except Exception as e:
+            print(f"Error occurred while updating annotations: {str(e)}")
+            if os.path.exists(backup_path):
+                import shutil
+                shutil.copy2(backup_path, label_path)
+                print("Restored from backup due to error")
+
+    def remove_specific_mask(self, id_folder="ID363", image_name="image1664935962797.png", label_to_remove="finger-14"):
+        """
+        특정 이미지에서 특정 라벨의 마스크를 제거
+        Args:
+            id_folder (str): ID 폴더명
+            image_name (str): 이미지 파일명
+            label_to_remove (str): 제거할 라벨명
+        """
+        # 이미지 정보 가져오기
+        images = self.get_image_info(id_folder, image_name)
+        
+        if not images:
+            print(f"Error: Image not found for {id_folder}/{image_name}")
+            return
+        
+        label_path = images[0]['label_path']
+        
+        if not os.path.exists(label_path):
+            print(f"Error: Label file not found at {label_path}")
+            return
+        
+        # 백업 파일 생성
+        backup_path = label_path + '.backup'
+        if not os.path.exists(backup_path):
+            import shutil
+            shutil.copy2(label_path, backup_path)
+            print(f"Created backup at {backup_path}")
+        
+        try:
+            # JSON 파일 읽기
+            with open(label_path, 'r') as f:
+                data = json.load(f)
+            
+            # 기존 어노테이션 개수
+            original_count = len(data['annotations'])
+            
+            # 특정 라벨 제거
+            data['annotations'] = [
+                ann for ann in data['annotations'] 
+                if ann['label'] != label_to_remove
+            ]
+            
+            # 제거된 어노테이션 개수
+            removed_count = original_count - len(data['annotations'])
+            
+            if removed_count > 0:
+                # 수정된 내용 저장
+                with open(label_path, 'w') as f:
+                    json.dump(data, f, indent=4)
+                print(f"Successfully removed {removed_count} annotations with label '{label_to_remove}'")
+            else:
+                print(f"No annotations found with label '{label_to_remove}'")
+                
+        except Exception as e:
+            print(f"Error occurred while updating annotations: {str(e)}")
+            # 에러 발생시 백업에서 복구
+            if os.path.exists(backup_path):
+                import shutil
+                shutil.copy2(backup_path, label_path)
+                print("Restored from backup due to error")
