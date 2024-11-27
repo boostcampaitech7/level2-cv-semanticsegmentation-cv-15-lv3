@@ -151,15 +151,34 @@ def train():
         min_lr=Config.MIN_LR
     )
     
-    # 데이터셋 준비
-    train_dataset = StratifiedXRayDataset(
+    # # 데이터셋 준비
+    # train_dataset = StratifiedXRayDataset(
+    #     image_root=Config.TRAIN_IMAGE_ROOT,
+    #     label_root=Config.TRAIN_LABEL_ROOT,
+    #     is_train=True,
+    #     transforms=Transforms.get_train_transform(),
+    #     meta_path=Config.META_PATH  # config에 META_PATH 추가 필요
+    # )
+
+    train_dataset_ori = StratifiedXRayDataset(
         image_root=Config.TRAIN_IMAGE_ROOT,
         label_root=Config.TRAIN_LABEL_ROOT,
         is_train=True,
-        transforms=Transforms.get_train_transform(),
+        transforms=Transforms.get_train_ori(),
         meta_path=Config.META_PATH  # config에 META_PATH 추가 필요
     )
-    
+
+    train_dataset_transformed = StratifiedXRayDataset(
+    image_root=Config.TRAIN_IMAGE_ROOT,
+    label_root=Config.TRAIN_LABEL_ROOT,
+    is_train=True,
+    transforms=Transforms.get_train_transform(),
+    meta_path=Config.META_PATH  # config에 META_PATH 추가 필요
+    )
+
+    # 원본 + 증강
+    train_dataset = train_dataset_ori + train_dataset_transformed
+
     valid_dataset = StratifiedXRayDataset(
         image_root=Config.TRAIN_IMAGE_ROOT,
         label_root=Config.TRAIN_LABEL_ROOT,
@@ -167,11 +186,6 @@ def train():
         transforms=Transforms.get_valid_transform(),
         meta_path=Config.META_PATH
     )
-
-    # 데이터셋 통계 출력 (콘솔)
-    print("\nDataset Statistics:")
-    train_dataset.print_dataset_stats()
-    valid_dataset.print_dataset_stats()
     
     # DataLoader
     train_loader = DataLoader(
@@ -193,17 +207,19 @@ def train():
     )
     
     # Training loop
-    patience = 10 # 조기 종료 횟수
+    patience = 50 # 조기 종료 횟수
     counter = 0 # 조기 종료 카운터
     best_dice = 0.
     global_step = 0  # 전역 step 카운터 추가
 
     for epoch in range(Config.NUM_EPOCHS):
+        # torch.cuda.empty_cache()
         epoch_start = time.time()
         model.train()
         epoch_loss = 0
         
         for step, (images, masks) in enumerate(train_loader):
+            # torch.cuda.empty_cache()
             images = images.to(device)
             masks = masks.to(device)
             
@@ -261,11 +277,11 @@ def train():
                 epoch + 1, model, valid_loader, criterion, device, threshold=0.5
             )
 
-            # # Scheduler step 추가
-            # if Config.SCHEDULER_TYPE == "reduce":
-            #     scheduler.step(dice)  # ReduceLROnPlateau는 metric을 전달
-            # else:
-            #     scheduler.step()      # 다른 스케줄러들은 단순히 step
+            # Scheduler step 추가
+            if Config.SCHEDULER_TYPE == "reduce":
+                scheduler.step(dice)  # ReduceLROnPlateau는 metric을 전달
+            else:
+                scheduler.step()      # 다른 스케줄러들은 단순히 step
             
             # Validation 결과 로깅
             wandb.log({

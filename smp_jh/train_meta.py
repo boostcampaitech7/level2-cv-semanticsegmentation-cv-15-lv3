@@ -168,6 +168,7 @@ def train():
         label_root=Config.TRAIN_LABEL_ROOT,
         is_train=True,
         transforms=Transforms.get_train_ori(),
+        transforms=Transforms.get_train_ori(),
         meta_path=Config.META_PATH  # config에 META_PATH 추가 필요
     )
 
@@ -189,16 +190,6 @@ def train():
         transforms=Transforms.get_valid_transform(),
         meta_path=Config.META_PATH
     )
-    
-
-    # 데이터셋 통계 출력 (콘솔)
-    print("Original Dataset Statistics:")
-    train_dataset_ori.print_dataset_stats()
-
-    # 증강된 데이터셋 통계
-    print("Transformed Dataset Statistics:")
-    train_dataset_transformed.print_dataset_stats()
-    
     
     # DataLoader
     train_loader = DataLoader(
