@@ -1,6 +1,34 @@
 import segmentation_models_pytorch as smp
 from config.config import Config
 
+import torch
+import torch.nn as nn
+
+class PreprocessingLayer(nn.Module):
+    def __init__(self):
+        super(PreprocessingLayer, self).__init__()
+        self.conv_layers = nn.Sequential(
+            nn.Conv2d(3, 3, kernel_size=3, stride=2, padding=1),  # 2048 → 1024
+            nn.ReLU(),
+            nn.Conv2d(3, 3, kernel_size=3, stride=2, padding=1),  # 1024 → 512
+            nn.ReLU()
+        )
+    def forward(self, x):
+        return self.conv_layers(x)
+
+
+# 커스텀 모델 정의 (PreprocessingLayer + Segmentation Model 결합)
+class CombinedModel(nn.Module):
+    def __init__(self, preprocess_layer, segmentation_model):
+        super(CombinedModel, self).__init__()
+        self.preprocess = preprocess_layer
+        self.segmentation = segmentation_model
+
+    def forward(self, x):
+        x = self.preprocess(x)  # 전처리 레이어를 통해 크기 축소
+        x = self.segmentation(x)  # Segmentation 모델에 전달
+        return x
+
 def get_model(num_classes=29):
     MODELS = {
         'Unet': smp.Unet,
@@ -16,43 +44,26 @@ def get_model(num_classes=29):
     }
     
     model_fn = MODELS[Config.MODEL_ARCHITECTURE]
-    return model_fn(
+
+    segmentation_model = model_fn(
         encoder_name=Config.ENCODER_NAME,
         encoder_weights=Config.ENCODER_WEIGHTS,
         in_channels=3,
         classes=num_classes,
     )
 
-# import torch
-# import torch.nn as nn
-# import segmentation_models_pytorch as smp
-# from config.config import Config
+    preprocess_layer = PreprocessingLayer()
+    combined_model = CombinedModel(preprocess_layer, segmentation_model)
 
-# # 전처리 레이어 정의 (크기 줄이기)
-# class PreprocessingLayer(nn.Module):
-#     def __init__(self):
-#         super(PreprocessingLayer, self).__init__()
-#         self.conv_layers = nn.Sequential(
-#             nn.Conv2d(3, 3, kernel_size=3, stride=2, padding=1),  # 2048 → 1024
-#             nn.ReLU(),
-#             nn.Conv2d(3, 3, kernel_size=3, stride=2, padding=1),  # 1024 → 512
-#             nn.ReLU()
-#         )
+    return combined_model
 
-#     def forward(self, x):
-#         return self.conv_layers(x)
+    # return model_fn(
+    #     encoder_name=Config.ENCODER_NAME,
+    #     encoder_weights=Config.ENCODER_WEIGHTS,
+    #     in_channels=3,
+    #     classes=num_classes,
+    # )
 
-# # 커스텀 모델 정의 (PreprocessingLayer + Segmentation Model 결합)
-# class CombinedModel(nn.Module):
-#     def __init__(self, preprocess_layer, segmentation_model):
-#         super(CombinedModel, self).__init__()
-#         self.preprocess = preprocess_layer
-#         self.segmentation = segmentation_model
-
-#     def forward(self, x):
-#         x = self.preprocess(x)  # 전처리 레이어를 통해 크기 축소
-#         x = self.segmentation(x)  # Segmentation 모델에 전달
-#         return x
 
 # # Segmentation 모델 생성 함수
 # def get_model(num_classes=29):

@@ -52,7 +52,7 @@ def main():
     )
     
     # 모델 로드
-    model = torch.load(os.path.join(Config.SAVED_DIR, "best_model.pt"))
+    model = torch.load(os.path.join(Config.SAVED_DIR, "UnetPP_hrnetw64_img1536_58ep_batch2_best.pt"))
     
     # 추론
     rles, filename_and_class = test(model, test_loader)

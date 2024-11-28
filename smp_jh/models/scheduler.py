@@ -30,7 +30,7 @@ class Scheduler:
             return lr_scheduler.ReduceLROnPlateau(
                 optimizer,
                 mode=kwargs.get('mode', 'max'),
-                factor=kwargs.get('factor', 0.5),
+                factor=kwargs.get('factor', 0.1),
                 patience=kwargs.get('patience', 5),
                 verbose=True
             )

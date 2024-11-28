@@ -14,12 +14,12 @@ class Config:
 
     TRAIN_BATCH_SIZE = 2
     VAL_BATCH_SIZE = 2
-    LEARNING_RATE = 1e-4
+    LEARNING_RATE = 5e-4 
     NUM_EPOCHS = 100
     VAL_EVERY = 1
     RANDOM_SEED = 21
 
-    IMG_SIZE = 512
+    IMG_SIZE = 1536 # segmentation model input size
 
     # Loss
     LOSS_TYPE = "hybrid" # [ "bce", "dice", "focal" ]
@@ -32,7 +32,7 @@ class Config:
     WANDB = {
         "api_key": "fdd41cd76bf1a14ef62fe773d75c95eaaee3a604",
         "project_name": "Hand_bone_segmentation",
-        "experiment_detail": f"{MODEL_ARCHITECTURE}_{ENCODER_NAME}_{LOSS_TYPE}_sum_gamma",
+        "experiment_detail": "debug", #f"{MODEL_ARCHITECTURE}_{ENCODER_NAME}_{LOSS_TYPE}_last_log",
         "model_name": f"{MODEL_ARCHITECTURE}"
     }
 
