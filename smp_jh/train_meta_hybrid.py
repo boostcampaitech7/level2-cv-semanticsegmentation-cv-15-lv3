@@ -73,7 +73,7 @@ def validation(epoch, model, data_loader, criterion, device, threshold=0.5):
                 outputs = F.interpolate(outputs, size=(mask_h, mask_w), mode="bilinear")
         
             # Calculate loss
-            loss, focal, ms_ssim, iou = criterion(outputs, masks)
+            loss, bce, iou, anatomical = criterion(outputs, masks)
             total_loss += loss.item()
         
             # Calculate dice score
@@ -88,9 +88,10 @@ def validation(epoch, model, data_loader, criterion, device, threshold=0.5):
                     f'{datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")} | '
                     f'Step [{step+1}/{len(data_loader)}], '
                     f'Loss: {round(loss.item(),4)}, '
-                    f'Focal: {round(focal.item(),4)}, ' 
-                    f'MS-SSIM: {round(ms_ssim.item(),4)}, '
+                    f'BCE: {round(bce.item(),4)}, ' 
+                    # f'MS-SSIM: {round(ms_ssim.item(),4)}, '
                     f'IoU: {round(iou.item(),4)}, '
+                    f'Anatomical: {round(anatomical.item(),4)}, '
                     f'Dice: {round(torch.mean(dice).item(),4)}'
                 )
     
@@ -225,7 +226,7 @@ def train():
             
             with autocast(enabled=True):
                 outputs = model(images)
-                loss, focal, ms_ssim, iou = criterion(outputs, masks)
+                loss, bce, iou, anatomical = criterion(outputs, masks)
             
             optimizer.zero_grad()
             scaler.scale(loss).backward()
@@ -240,15 +241,17 @@ def train():
                     f'Epoch [{epoch+1}/{Config.NUM_EPOCHS}], '
                     f'Step [{step+1}/{len(train_loader)}], '
                     f'Loss: {round(loss.item(),4)}, '
-                    f'Focal: {round(focal.item(),4)}, '
-                    f'MS-SSIM: {round(ms_ssim.item(),4)}, '
-                    f'IoU: {round(iou.item(),4)}'
+                    f'BCE: {round(bce.item(),4)}, '
+                    # f'MS-SSIM: {round(ms_ssim.item(),4)}, '
+                    f'IoU: {round(iou.item(),4)}, '
+                    f'Anatomical: {round(anatomical.item(),4)}'
                 )
                 wandb.log({
                     "Step Loss": loss.item(),
-                    "Focal": focal.item(),
+                    "BCE": bce.item(),
                     "IoU": iou.item(),
-                    "MS-SSIM": ms_ssim.item(),
+                    "Anatomical": anatomical.item(),
+                    # "MS-SSIM": ms_ssim.item(),
                     "Learning Rate": optimizer.param_groups[0]['lr']
                 }, step=global_step)
                 global_step += 1
