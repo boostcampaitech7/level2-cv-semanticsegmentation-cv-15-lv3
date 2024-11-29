@@ -6,7 +6,7 @@ class Transforms:
     def get_train_transform():
         return A.Compose([
             A.Resize(Config.IMG_SIZE, Config.IMG_SIZE),
-            A.RandomGamma(gamma_limit=(80, 200), p=0.3),  # 감마 보정 추가
+            A.RandomGamma(gamma_limit=(80, 200), p=0.3),
             A.Rotate(limit=10, p=0.8),  # Random Rotation (-12 ~ 12도, 70% 확률)
             A.HorizontalFlip(p=1),  # Horizontal Flip (항상 적용)
             A.RandomBrightnessContrast(
@@ -21,9 +21,15 @@ class Transforms:
     def get_train_ori():
         return A.Compose([
             A.Resize(Config.IMG_SIZE, Config.IMG_SIZE),
+            A.RandomGamma(gamma_limit=(80, 200), p=0.3),
+        ])
+    
+    @staticmethod
+    def get_train_ori():
+        return A.Compose([
+            A.Resize(Config.IMG_SIZE, Config.IMG_SIZE),
             A.RandomGamma(gamma_limit=(80, 200), p=0.3)  # 감마 보정 추가
         ])
-
 
     @staticmethod
     def get_valid_transform():

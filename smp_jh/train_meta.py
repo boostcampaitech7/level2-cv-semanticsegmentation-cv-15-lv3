@@ -162,10 +162,12 @@ def train():
     #     is_train=False,
     #     transforms=Transforms.get_valid_transform()
     # )
+
     train_dataset_ori = StratifiedXRayDataset(
         image_root=Config.TRAIN_IMAGE_ROOT,
         label_root=Config.TRAIN_LABEL_ROOT,
         is_train=True,
+        transforms=Transforms.get_train_ori(),
         transforms=Transforms.get_train_ori(),
         meta_path=Config.META_PATH  # config에 META_PATH 추가 필요
     )
@@ -180,7 +182,7 @@ def train():
 
     # 원본 + 증강
     train_dataset = train_dataset_ori + train_dataset_transformed
-    
+
     valid_dataset = StratifiedXRayDataset(
         image_root=Config.TRAIN_IMAGE_ROOT,
         label_root=Config.TRAIN_LABEL_ROOT,
@@ -188,11 +190,6 @@ def train():
         transforms=Transforms.get_valid_transform(),
         meta_path=Config.META_PATH
     )
-
-    # 데이터셋 통계 출력 (콘솔)
-    print("\nDataset Statistics:")
-    train_dataset.print_dataset_stats()
-    valid_dataset.print_dataset_stats()
     
     # DataLoader
     train_loader = DataLoader(
@@ -283,6 +280,7 @@ def train():
                 scheduler.step()      # 다른 스케줄러들은 단순히 step
             
             # Validation 결과 로깅
+            
             wandb.log({
                 "Validation Loss": val_loss,
                 "Average Dice Score": dice,

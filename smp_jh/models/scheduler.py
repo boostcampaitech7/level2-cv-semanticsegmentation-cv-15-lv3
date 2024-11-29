@@ -21,7 +21,12 @@ class Scheduler:
                 gamma=kwargs.get('gamma', 0.1)
             )
         elif scheduler_type == "cosine":
-            return lr_scheduler.CosineAnnealingWarmRestarts(optimizer, T_0=55, T_mult=2, eta_min=5e-6)
+            return lr_scheduler.CosineAnnealingWarmRestarts(
+                optimizer, 
+                T_0=55, 
+                T_mult=2, 
+                eta_min=5e-6
+            )
         elif scheduler_type == "reduce":
             return lr_scheduler.ReduceLROnPlateau(
                 optimizer,

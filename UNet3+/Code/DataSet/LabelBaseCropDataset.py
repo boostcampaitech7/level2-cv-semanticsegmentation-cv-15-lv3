@@ -18,7 +18,7 @@ class XRayDataset(Dataset):
         self.transforms = transforms
         self.save_dir = save_dir  # Crop된 이미지 저장 디렉토리
         self.draw_enabled = draw_enabled  # 라벨 그리기 기능 활성화 여부
-
+        self.save_once=False
     def __len__(self):
         return len(self.filenames)
 
@@ -70,10 +70,11 @@ class XRayDataset(Dataset):
             image = result["image"]
             label = result["mask"] if self.is_train else label
 
-        if self.draw_enabled and self.save_dir:
+        if self.draw_enabled and self.save_dir and not self.save_once:
             os.makedirs(self.save_dir, exist_ok=True)
             save_path = os.path.join(self.save_dir, f"cropped_{os.path.basename(self.filenames[item])}")
             draw_and_save_crop(image, label, save_path)
+            self.save_once = True 
         
         # Convert to tensor
         image = image.transpose(2, 0, 1)  # Channel first
@@ -94,8 +95,8 @@ class XRayDataset(Dataset):
         # 중심점 계산
         center_x = (min_x + max_x) / 2
         center_y = (min_y + max_y) / 2
-        random_offset_x = random.randint(-20, 20)
-        random_offset_y = random.randint(-20, 20)
+        random_offset_x = random.randint(-30, 30)
+        random_offset_y = random.randint(-30, 30)
 
         center_x = center_x + random_offset_x
         center_y = center_y + random_offset_y

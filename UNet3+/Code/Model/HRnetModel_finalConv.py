@@ -35,7 +35,7 @@ class HRNetEncoder_NOReduce(nn.Module): #1/4안줄이고 시작.
 
         # Define new convolution layers
         self.init_conv1 = nn.Sequential(
-            nn.Conv2d(3, 64, kernel_size=3, stride=1, padding=1, bias=False),
+            nn.Conv2d(3, 64, kernel_size=3, stride=2, padding=1, bias=False),
             nn.BatchNorm2d(64, momentum=0.1),
             nn.ReLU(inplace=True)
         )
@@ -79,7 +79,7 @@ class HRNetEncoder_NOReduce(nn.Module): #1/4안줄이고 시작.
             else:
                 x_list.append(h1)
         y_list = self.hrnet.stage2(x_list)
-        #h2 = self._merge_multi_scale(y_list)  # Merge outputs for this stage
+        h2 = self._merge_multi_scale(y_list)  # Merge outputs for this stage
 
         # Stage 3
         x_list = []
@@ -89,7 +89,7 @@ class HRNetEncoder_NOReduce(nn.Module): #1/4안줄이고 시작.
             else:
                 x_list.append(y_list[i])
         y_list = self.hrnet.stage3(x_list)
-        #h3 = self._merge_multi_scale(y_list)  # Merge outputs for this stage
+        h3 = self._merge_multi_scale(y_list)  # Merge outputs for this stage
 
         # Stage 4
         x_list = []
@@ -99,8 +99,8 @@ class HRNetEncoder_NOReduce(nn.Module): #1/4안줄이고 시작.
             else:
                 x_list.append(y_list[i])
         y_list = self.hrnet.stage4(x_list)
-        h1, h2, h3, h4=y_list
-        #h4 = self._merge_multi_scale(y_list)  # Merge outputs for this stage
+        #h1, h2, h3, h4=y_list
+        h4 = self._merge_multi_scale(y_list)  # Merge outputs for this stage
         #print(h1.shape,h2.shape,h3.shape,h4.shape)
         return h1, h2, h3, h4
 
@@ -214,8 +214,8 @@ class UNet3PlusHRNet(nn.Module):
                  pretrained_weights="HRNet/hrnetv2_w64_imagenet_pretrained.pth"):
         super(UNet3PlusHRNet, self).__init__()
 
-        filters = [64, 128, 256, 512] #HRNetEncoder_NOReduce
-        #filters = [256, 144, 336, 720] #HRNetEncoder
+        #filters = [64, 128, 256, 512] #HRNetEncoder_NOReduce
+        filters = [256, 192, 448, 960] #HRNetEncoder
         # Define HRNet stages as encoder
         self.encoder=HRNetEncoder_NOReduce(hrnet_config_file=hrnet_config_file, pretrained_weights=pretrained_weights)
 
@@ -347,8 +347,13 @@ class UNet3PlusHRNet(nn.Module):
         self.upscore4 = nn.Upsample(size=(IMSIZE, IMSIZE), mode='bilinear', align_corners=True)  # 512x512로 고정
         self.upscore3 = nn.Upsample(size=(IMSIZE, IMSIZE), mode='bilinear', align_corners=True)  # 512x512로 고정
         self.upscore2 = nn.Upsample(size=(IMSIZE, IMSIZE), mode='bilinear', align_corners=True)  # 512x512로 고정
-        self.upscore1 = nn.Upsample(size=(IMSIZE, IMSIZE), mode='bilinear', align_corners=True)  # 512x512로 고정
-
+        self.upscore1 = nn.ConvTranspose2d(
+            in_channels=n_classes,
+            out_channels=n_classes,
+            kernel_size=4,
+            stride=2,
+            padding=1
+        )
 
         # DeepSup
         self.outconv1 = nn.Conv2d(self.UpChannels, n_classes, 3, padding=1)
