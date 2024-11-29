@@ -364,7 +364,7 @@ class UNet3PlusHRNet(nn.Module):
             nn.Sigmoid()                     # 멀티라벨 환경에서 클래스 존재 확률 출력
         )
         self.encoder_ids = {id(module) for module in self.encoder.modules()}
-        self.final_conv = nn.Conv2d(in_channels=n_classes*5, out_channels=n_classes, kernel_size=1)
+        self.final_conv = nn.Conv2d(in_channels=n_classes*4, out_channels=n_classes, kernel_size=1)
 
         self._initialize_weights()
 
@@ -449,9 +449,9 @@ class UNet3PlusHRNet(nn.Module):
         #d5 = self.dotProduct(d5, cls_branch)
         
         
-        final_output = torch.cat([d1, d1, d2, d3, d4], dim=1)  # 채널 방향 결합
+        '''final_output = torch.cat([d1, d2, d3, d4], dim=1)  # 채널 방향 결합
         final_output = self.final_conv(final_output)  # 1x1 Conv로 최종 마스크 생성
-        return final_output
+        return final_output'''
         # 가중치 적용
         '''weights = [0.42, 0.27, 0.17, 0.14]  # 가중치
         final_output = (
@@ -459,12 +459,26 @@ class UNet3PlusHRNet(nn.Module):
             weights[1] * d2 + 
             weights[2] * d3 + 
             weights[3] * d4 
-        )
+        )'''
 
-        return final_output'''
+        #return final_output'''
         
         '''if self.training:
-            return d1, d2, d3, d4, d5
+            weights = [0.4, 0.3, 0.2, 0.1]  # 가중치
+            final_output = (
+                weights[0] * d1 + 
+                weights[1] * d2 + 
+                weights[2] * d3 + 
+                weights[3] * d4 
+            )
+            return final_output
         else:
             #print(d1)
-            return d1'''
+            return d1
+        '''
+        outputs = [d1,h2,h3,h4]
+        print(h1.shape,h2.shape,h3.shape,h4.shape)
+        if self.training:
+            return torch.cat(outputs, dim=0)
+        else:
+            return outputs[0]

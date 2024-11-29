@@ -28,7 +28,7 @@ class XRayInferenceDataset(Dataset):
         image_path = os.path.join(TEST_IMAGE_ROOT, image_name)
 
         image = cv2.imread(image_path)
-        
+        print(image.shape)
         
         if self.yolo_model:
             results = self.yolo_model.predict(image_path, imgsz=2048, iou=0.3, conf=0.1, max_det=3)
@@ -52,15 +52,15 @@ class XRayInferenceDataset(Dataset):
                 
         image = image / 255.
         
-        if self.transforms is not None:
+        '''if self.transforms is not None:
             inputs = {"image": image}
             result = self.transforms(**inputs)
-            image = result["image"]
+            image = result["image"]'''
         
-        if self.draw_enabled and self.save_dir:
+        '''if self.draw_enabled and self.save_dir:
             os.makedirs(self.save_dir, exist_ok=True)
             save_path = os.path.join(self.save_dir, f"cropped_{os.path.basename(self.filenames[item])}")
-            self.save_crop(image, save_path)
+            self.save_crop(image, save_path)'''
 
         # to tenser will be done later
         image = image.transpose(2, 0, 1)    # make channel first

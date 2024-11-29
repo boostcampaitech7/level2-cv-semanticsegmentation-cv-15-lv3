@@ -9,11 +9,12 @@ from Util.DiscordAlam import send_discord_message
 
 set_seed()
 
-def save_model(model, file_name=MODELNAME):
-    output_path = os.path.join(SAVED_DIR, file_name)
+def save_model(model, output_path=None):
+    # output_path = os.path.join(SAVED_DIR, file_name)
+    assert output_path is not None, "Output path must be specified."
     torch.save(model, output_path)
 
-def train(model, data_loader, val_loader, criterion, optimizer, scheduler, accumulation_steps=ACCUMULATION_STEPS, threshold=0.93):
+def train(model, data_loader, val_loader, criterion, optimizer, scheduler, accumulation_steps=ACCUMULATION_STEPS, threshold=0.3):
     wandb.init(project="UNet3+", name=MODELNAME)
     
     print(f'Start training with Gradient Accumulation (accumulation_steps={accumulation_steps})..')
@@ -26,11 +27,12 @@ def train(model, data_loader, val_loader, criterion, optimizer, scheduler, accum
     # Early stopping 설정
     patience = 100
     counter = 0
-
+    model.encoder.freeze_hrnet()
     for epoch in range(NUM_EPOCHS):
         start_time = datetime.datetime.now()
+        current_lr = scheduler.get_lr()[0]  # 현재 학습률 가져오기 (첫 번째 파라미터 그룹 기준)
         print(f"Epoch {epoch + 1} started at {start_time.strftime('%Y-%m-%d %H:%M:%S')}")
-
+        print(f"Learning Rate: {current_lr}")
         model.train()
         optimizer.zero_grad()
 
@@ -43,6 +45,7 @@ def train(model, data_loader, val_loader, criterion, optimizer, scheduler, accum
 
             # Forward pass
             outputs = model(images)  # 모델 출력
+            masks = masks.repeat(5, 1, 1, 1)
             loss, focal, iou, msssim = criterion(outputs, masks)
 
             # Normalize loss for gradient accumulation
@@ -58,9 +61,9 @@ def train(model, data_loader, val_loader, criterion, optimizer, scheduler, accum
             if (step + 1) % accumulation_steps == 0 or (step + 1) == len(data_loader):
                 optimizer.step()
                 optimizer.zero_grad()
-
+            
             # Logging every 80 steps
-            if (step + 1) % 80 == 0 or (step + 1) == len(data_loader):
+            if (step + 1) % 100 == 0 or (step + 1) == len(data_loader):
                 print(
                     f'{datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")} | '
                     f'Epoch [{epoch+1}/{NUM_EPOCHS}], '
@@ -95,13 +98,17 @@ def train(model, data_loader, val_loader, criterion, optimizer, scheduler, accum
             wandb.log({
                 "Validation Dice Score": dice,
             }, step=global_step)
-
+            if dice >= threshold and all(param.requires_grad is False for param in model.encoder.hrnet.parameters()):
+                print(f"Validation dice reached {dice:.4f} >= {threshold:.4f}. Unfreezing HRNet.")
+                model.encoder.unfreeze_hrnet()
+                print("HRNet unfrozen.")
             if best_dice < dice:
                 print(f"Best performance at epoch: {epoch + 1}, {best_dice:.4f} -> {dice:.4f}")
                 send_discord_message(f"성능 모니터링: {epoch + 1}, {best_dice:.4f} -> {dice:.4f}")
-                print(f"Save model in {SAVED_DIR}")
+                output_path = os.path.join(SAVED_DIR, MODELNAME)
+                print(f"Save model in {output_path}")
                 best_dice = dice
-                save_model(model)
+                save_model(model,output_path)
 
                 # Best 모델 정보 로깅
                 wandb.log({

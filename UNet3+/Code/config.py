@@ -4,11 +4,11 @@ WEBHOOK_URL = 'https://discord.com/api/webhooks/1306529597055041562/DUG0omhuBla0
 
 YOLO_MODEL_PATH="/data/ephemeral/home/MCG/YOLO_Detection_Model/best.pt"
 
-#SAVE_VISUALIZE_TRAIN_DATA_PATH="/data/ephemeral/home/MCG/YOLO_Detection_Model/crop_train_Image"
+SAVE_VISUALIZE_TRAIN_DATA_PATH="/data/ephemeral/home/MCG/YOLO_Detection_Model/testCropImage"
 VISUALIZE_TRAIN_DATA=False
 
-IMAGE_ROOT = "../../data/train/DCM"
-LABEL_ROOT = "../../data/train/outputs_json"
+IMAGE_ROOT = "/data/ephemeral/home/MCG/level2-cv-semanticsegmentation-cv-15-lv3/data/train/DCM"
+LABEL_ROOT = "/data/ephemeral/home/MCG/level2-cv-semanticsegmentation-cv-15-lv3/data/train/outputs_json"
 
 '''CLASSES = [
     'finger-1', 'finger-2', 'finger-3', 'finger-4', 'finger-5',
@@ -35,7 +35,7 @@ YOLO_SELECT_CLASS="others"
 RANDOM_SEED = 21
 
 # 적절하게 조절
-NUM_EPOCHS = 300
+NUM_EPOCHS = 500
 VAL_EVERY = 1
 
 ACCUMULATION_STEPS = 32
@@ -47,13 +47,13 @@ MILESTONES=[5,20,32,40,47]
 GAMMA=0.3
 
 SAVED_DIR = "/data/ephemeral/home/MCG/UNetRefactored/Creadted_model"
-MODELNAME="Crop_HRNetReduece_auaufaufuaufuf..pt"
+MODELNAME="@@@@@@@@@@@@@@.pt"
 if not os.path.isdir(SAVED_DIR):
     os.mkdir(SAVED_DIR)
 
-INFERENCE_MODEL_NAME="Crop_HRNetReduece_auaufaufuaufuf..pt"
+INFERENCE_MODEL_NAME="@@@@@@@@@@@@@@.pt"
 
-TEST_IMAGE_ROOT="../../data/test/DCM"
+TEST_IMAGE_ROOT="/data/ephemeral/home/MCG/level2-cv-semanticsegmentation-cv-15-lv3/data/test/DCM"
 
 CSVDIR="/data/ephemeral/home/MCG/UNetRefactored/CSV"
-CSVNAME="Crop_HRNetReduece_auaufaufuaufuf..csv"
+CSVNAME="@@@@@@@@@@@@@@.csv"

@@ -1,8 +1,8 @@
 import pandas as pd
 
 # 1번 CSV와 2번 CSV 파일 경로
-csv1_path = "/data/ephemeral/home/MCG/UNetRefactored/CSV/097HR.csv"
-csv2_path = "/data/ephemeral/home/MCG/UNetRefactored/CSV/CropOthers_ResNet152_Hybrid.csv"
+csv1_path = "/data/ephemeral/home/MCG/UNetRefactored/CSV/0971.csv"
+csv2_path = "/data/ephemeral/home/MCG/UNetRefactored/CSV/connect!!!!!!!!!!!!.csv"
 
 # CSV 읽기
 df1 = pd.read_csv(csv1_path)
@@ -37,7 +37,7 @@ updated_df = pd.DataFrame(updated_rows)
 updated_df.drop(columns=["key"], inplace=True)
 
 # 결과 CSV 저장
-output_path = "/data/ephemeral/home/MCG/UNetRefactored/CSV/updated_csv.csv"
+output_path = "/data/ephemeral/home/MCG/UNetRefactored/CSV/NonNonConnection.csv"
 updated_df.to_csv(output_path, index=False)
 
 print(f"결과 CSV가 '{output_path}'에 저장되었습니다.")

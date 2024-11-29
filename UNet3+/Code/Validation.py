@@ -27,7 +27,8 @@ def validation(epoch, model, data_loader, criterion, thr=0.5):
 
             # 출력 크기 보정 (필요한 경우만)
             if outputs.shape[-2:] != masks.shape[-2:]:
-                outputs = F.interpolate(outputs, size=masks.shape[-2:], mode="bilinear", align_corners=False)
+                raise ValueError("Output size does not match crop size!")
+                #outputs = F.interpolate(outputs, size=masks.shape[-2:], mode="bilinear", align_corners=False)
             
             # 손실 계산
             batch_loss, batch_focal, batch_iou, batch_msssim = criterion(outputs, masks)
@@ -45,7 +46,7 @@ def validation(epoch, model, data_loader, criterion, thr=0.5):
             dices.append(dice.detach())
 
             # 진행 상황 출력
-            if (step + 1) % 80 == 0 or (step + 1) == total_steps:
+            if (step + 1) % 100 == 0 or (step + 1) == total_steps:
                 print(f"Validation Progress: Step {step + 1}/{total_steps}")
 
     # Loss 평균 계산
