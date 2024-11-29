@@ -107,22 +107,19 @@ class BIELoss(nn.Module):
     def __init__(self, alpha=0.7, beta=0.2, gamma=0.1):
         super().__init__()
         self.bce_loss = nn.BCEWithLogitsLoss()
-        self.iou_loss = LogIoULoss()
-        self.edge_loss = EdgeLoss()
+        self.iou_loss = IoULoss()
         self.alpha = alpha  # BCE weight
         self.beta = beta   # IoU weight
-        self.gamma = gamma # Edge weight
+        # self.gamma = gamma # Edge weight
     
     def forward(self, pred, target):
         bce = self.bce_loss(pred, target)
         iou = self.iou_loss(pred, target)
-        edge = self.edge_loss(pred, target)
         
         total_loss = (self.alpha * bce + 
-                     self.beta * iou + 
-                     self.gamma * edge)
+                     self.beta * iou)
         
-        return total_loss, bce, iou, edge
+        return total_loss, bce, 0, iou
 
 class MS_SSIM_Loss(nn.Module):
     def __init__(self, data_range=1.0, size_average=True, win_size=11, win_sigma=1.5, weights=None):
@@ -167,9 +164,9 @@ class MS_SSIM_Loss(nn.Module):
         return 1 - ms_ssim_val
 
 class HybridLoss(nn.Module):
-    def __init__(self, focal_weight=1, iou_weight=1, ms_ssim_weight=1, smooth=1e-6):
+    def __init__(self, bce_weight=1, iou_weight=1, ms_ssim_weight=1, smooth=1e-6):
         super(HybridLoss, self).__init__()
-        self.focal_weight = focal_weight
+        self.bce_weight = bce_weight
         self.iou_weight = iou_weight
         self.ms_ssim_weight = ms_ssim_weight
         self.smooth = smooth
@@ -205,21 +202,21 @@ class HybridLoss(nn.Module):
             return torch.mean(F_loss)
         else:
             return F_loss.sum() / logits.size(0)
+    
+    def bce_loss(self, logits, targets):
+        return self.bce_loss_fn(logits, targets)
 
     def iou_loss(self, logits, targets):
         probs = torch.sigmoid(logits)
         intersection = (probs * targets).sum(dim=(2, 3))
         union = probs.sum(dim=(2, 3)) + targets.sum(dim=(2, 3)) - intersection
-        iou_loss = 1 - (intersection + self.smooth) / (union + self.smooth)
-        return iou_loss.mean()
+        iou_loss = (intersection + self.smooth) / (union + self.smooth)
+        return -torch.log(iou_loss).mean()
 
     def forward(self, logits, targets):
-        focal = self.focal_loss(logits, targets) * self.focal_weight
+        bce = self.bce_loss(logits, targets) * self.bce_weight
         iou = self.iou_loss(logits, targets) * self.iou_weight
-        ms_ssim = self.ms_ssim(logits, targets) * self.ms_ssim_weight
+        # ms_ssim = self.ms_ssim(logits, targets) * self.ms_ssim_weight
         
-        hybrid_loss = focal + ms_ssim + iou
-        return hybrid_loss, focal, ms_ssim , iou
-
-
-
+        hybrid_loss = bce + 0 + iou
+        return hybrid_loss, bce, 0 , iou
