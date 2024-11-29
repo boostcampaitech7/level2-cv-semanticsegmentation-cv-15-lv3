@@ -12,6 +12,7 @@ def validation(epoch, model, data_loader, criterion, thr=0.5):
     total_iou = 0
     total_dice = 0
     total_msssim = 0
+    total_boundary = 0
     num_samples = 0  # 총 샘플 수 계산
 
     dices = []
@@ -37,7 +38,7 @@ def validation(epoch, model, data_loader, criterion, thr=0.5):
             total_iou += batch_iou.item()
             #total_dice += batch_dice.item()
             total_msssim += batch_msssim.item()
-
+            total_boundary += batch_boundary.item()
             num_samples += 1
             outputs = torch.sigmoid(outputs)
             # Dice 계산
@@ -55,7 +56,7 @@ def validation(epoch, model, data_loader, criterion, thr=0.5):
     avg_iou = total_iou / num_samples
     #avg_dice = total_dice / num_samples
     avg_msssim = total_msssim / num_samples
-
+    avg_boundary = total_boundary / num_samples
     # Dice 평균 계산
     dices = torch.cat(dices, 0)
     dices_per_class = dices.mean(dim=0)

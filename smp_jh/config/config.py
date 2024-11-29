@@ -19,6 +19,8 @@ class Config:
     VAL_EVERY = 1
     RANDOM_SEED = 21
 
+    IMG_SIZE = 512
+
     # Loss
     LOSS_TYPE = "bce" # [ "bce", "dice", "focal" ]
 
@@ -28,7 +30,7 @@ class Config:
     MIN_LR = 1e-6
     
     WANDB = {
-        "api_key": "6bbca80c9b2d573046d3ffe19c0d407ba54ad774",
+        "api_key": "your_api_key",
         "project_name": "Hand_bone_segmentation",
         "experiment_detail": f"{MODEL_ARCHITECTURE}_{ENCODER_NAME}_batch{TRAIN_BATCH_SIZE}_{NUM_EPOCHS}ep",
         "model_name": MODEL_ARCHITECTURE,
