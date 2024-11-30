@@ -1,6 +1,6 @@
 import datetime
 from config import CLASSES, NUM_EPOCHS, VAL_EVERY, SAVED_DIR, MODELNAME, ACCUMULATION_STEPS
-from Validation import validation
+from Validation.Validation import validation
 import os
 import torch
 import wandb

@@ -13,7 +13,7 @@ from DataSet.DataLoder import get_image_label_paths
 from config import IMAGE_ROOT, LABEL_ROOT, BATCH_SIZE, IMSIZE, CLASSES, MILESTONES, GAMMA, LR, SAVED_DIR, VISUALIZE_TRAIN_DATA,NUM_EPOCHS
 from DataSet.LabelBaseCropDataset import XRayDataset
 from Loss.Loss import CombinedLoss
-from NoMixedWeightTrain import train
+from TrainTool.NoMixedWeightTrain import train
 from Util.SetSeed import set_seed
 from sklearn.utils import shuffle
 from Util.cusom_cosine_annal import CosineAnnealingWarmUpRestarts
