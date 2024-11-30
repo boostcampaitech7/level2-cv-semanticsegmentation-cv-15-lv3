@@ -26,6 +26,8 @@ CLASSES = [
     'Triquetrum', 'Pisiform',
 ]
 
+MODEL="4Stage_HRnet_UNet3+_from_last_stage"
+
 CLASS2IND = {v: i for i, v in enumerate(CLASSES)}
 IND2CLASS = {v: k for k, v in CLASS2IND.items()}
 

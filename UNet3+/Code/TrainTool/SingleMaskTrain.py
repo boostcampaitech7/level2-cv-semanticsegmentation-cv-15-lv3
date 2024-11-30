@@ -9,6 +9,7 @@ from Util.DiscordAlam import send_discord_message
 
 set_seed()
 
+
 def save_model(model, output_path=None):
     # output_path = os.path.join(SAVED_DIR, file_name)
     assert output_path is not None, "Output path must be specified."
@@ -28,6 +29,7 @@ def train(model, data_loader, val_loader, criterion, optimizer, scheduler, accum
     patience = 100
     counter = 0
     model.encoder.freeze_hrnet()
+    
     for epoch in range(NUM_EPOCHS):
         start_time = datetime.datetime.now()
         current_lr = scheduler.get_lr()[0]  # 현재 학습률 가져오기 (첫 번째 파라미터 그룹 기준)
@@ -38,14 +40,13 @@ def train(model, data_loader, val_loader, criterion, optimizer, scheduler, accum
 
         epoch_loss = 0
         # Define loss weights for each output
-        weights = [0.45, 0.3, 0.15, 0.1]  # Example weights, adjust as needed
+        #weights = [0.45, 0.3, 0.15, 0.1]  # Example weights, adjust as needed
 
         for step, (images, masks) in enumerate(data_loader):
             images, masks = images.cuda(), masks.cuda()
 
             # Forward pass
             outputs = model(images)  # 모델 출력
-            masks = masks.repeat(5, 1, 1, 1)
             loss, focal, iou, msssim = criterion(outputs, masks)
 
             # Normalize loss for gradient accumulation
