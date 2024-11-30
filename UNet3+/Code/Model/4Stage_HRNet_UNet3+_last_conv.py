@@ -21,8 +21,7 @@ import torch.nn as nn
 from HRNet.lib.HRmodels.cls_hrnet import HighResolutionNet, get_cls_net
 import yaml
 
-
-class HRNetEncoder(nn.Module): #1/4이미지
+class HRNetEncoder(nn.Module):
     def __init__(self, hrnet_config_file, pretrained_weights=None):
         super(HRNetEncoder, self).__init__()
 
@@ -83,8 +82,7 @@ class HRNetEncoder(nn.Module): #1/4이미지
         #for a in y_list:
             #print("4:@@@@@@@@@@@@@@@",a.shape)
         h4 = self._merge_multi_scale(y_list)  # Merge outputs for this stage
-        #h1,h2,h3,h4=y_list
-        #print(h1.shape,h2.shape,h3.shape,h4.shape)
+        #print(h4.shape)
         return h1, h2, h3, h4
 
 
@@ -107,16 +105,19 @@ class HRNetEncoder(nn.Module): #1/4이미지
         )
         return merged
 
+
+
 class UNet3PlusHRNet(nn.Module):
     def __init__(self, in_channels=3, n_classes=1,
-                 hrnet_config_file="HRNet/experiments/w64.yaml",
-                 pretrained_weights="HRNet/hrnetv2_w64_imagenet_pretrained.pth"):
+                 hrnet_config_file="/data/ephemeral/home/MCG/level2-cv-semanticsegmentation-cv-15-lv3/UNet3+/Code/HRNet/experiments/w64.yaml",
+                 pretrained_weights="/data/ephemeral/home/MCG/hrnetv2_w64_imagenet_pretrained.pth"):
         super(UNet3PlusHRNet, self).__init__()
 
-        #filters = [64, 128, 256, 512] #HRNetEncoder_NOReduce
-        filters = [256, 192, 448, 960] #HRNetEncoder
+        filters = [256, 192, 448, 960]
+
         # Define HRNet stages as encoder
         self.encoder=HRNetEncoder(hrnet_config_file=hrnet_config_file, pretrained_weights=pretrained_weights)
+
 
         ## -------------Decoder--------------
         self.CatChannels = filters[0]
@@ -242,17 +243,12 @@ class UNet3PlusHRNet(nn.Module):
         self.relu1d_1 = nn.ReLU(inplace=True)
 
         # -------------Bilinear Upsampling--------------
+        self.upscore5 = nn.Upsample(size=(IMSIZE, IMSIZE), mode='bilinear', align_corners=True)  # 512x512로 고정
         self.upscore4 = nn.Upsample(size=(IMSIZE, IMSIZE), mode='bilinear', align_corners=True)  # 512x512로 고정
         self.upscore3 = nn.Upsample(size=(IMSIZE, IMSIZE), mode='bilinear', align_corners=True)  # 512x512로 고정
         self.upscore2 = nn.Upsample(size=(IMSIZE, IMSIZE), mode='bilinear', align_corners=True)  # 512x512로 고정
-        #self.upscore1 = nn.Upsample(size=(IMSIZE, IMSIZE), mode='bilinear', align_corners=True)  # 512x512로 고정
-        self.upscore1 = nn.ConvTranspose2d(
-            in_channels=n_classes,
-            out_channels=n_classes,
-            kernel_size=4,
-            stride=2,
-            padding=1
-        )
+        self.upscore1 = nn.Upsample(size=(IMSIZE, IMSIZE), mode='bilinear', align_corners=True)  # 512x512로 고정
+
 
         # DeepSup
         self.outconv1 = nn.Conv2d(self.UpChannels, n_classes, 3, padding=1)
@@ -267,6 +263,7 @@ class UNet3PlusHRNet(nn.Module):
             nn.Sigmoid()                     # 멀티라벨 환경에서 클래스 존재 확률 출력
         )
         self.encoder_ids = {id(module) for module in self.encoder.modules()}
+        self.final_conv = nn.Conv2d(in_channels=n_classes*5, out_channels=n_classes, kernel_size=1)
 
         self._initialize_weights()
 
@@ -349,9 +346,13 @@ class UNet3PlusHRNet(nn.Module):
         d3 = self.dotProduct(d3, cls_branch)
         d4 = self.dotProduct(d4, cls_branch)
         #d5 = self.dotProduct(d5, cls_branch)
-        #print("shape",d1.shape,d2.shape,d3.shape,d4.shape)
+        
+        
+        final_output = torch.cat([d1, d1, d2, d3, d4], dim=1)  # 채널 방향 결합
+        final_output = self.final_conv(final_output)  # 1x1 Conv로 최종 마스크 생성
+        return final_output
         # 가중치 적용
-        weights = [0.42, 0.27, 0.17, 0.14]  # 가중치
+        '''weights = [0.42, 0.27, 0.17, 0.14]  # 가중치
         final_output = (
             weights[0] * d1 + 
             weights[1] * d2 + 
@@ -359,7 +360,7 @@ class UNet3PlusHRNet(nn.Module):
             weights[3] * d4 
         )
 
-        return final_output
+        return final_output'''
         
         '''if self.training:
             return d1, d2, d3, d4, d5
