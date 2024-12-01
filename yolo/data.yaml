@@ -1,0 +1,17 @@
+# Train/val/test sets as 1) dir: path/to/imgs, 2) file: path/to/imgs.txt, or 3) list: [path/to/imgs1, path/to/imgs2, ..]
+path: /data/ephemeral/home/dataset_yolo
+train: images/train  # 훈련 이미지 경로
+val: images/val  # 검증 이미지 경로
+# Number of classes
+nc: 29
+
+# Class names
+names: [
+    "finger-1", "finger-2", "finger-3", "finger-4", "finger-5",
+    "finger-6", "finger-7", "finger-8", "finger-9", "finger-10",
+    "finger-11", "finger-12", "finger-13", "finger-14", "finger-15",
+    "finger-16", "finger-17", "finger-18", "finger-19",
+    "Trapezium", "Trapezoid", "Capitate", "Hamate",
+    "Scaphoid", "Lunate", "Pisiform", "Triquetrum",
+    "Radius", "Ulna"
+]
