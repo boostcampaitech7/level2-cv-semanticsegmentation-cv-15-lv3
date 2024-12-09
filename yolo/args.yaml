@@ -1,0 +1,14 @@
+mosaic: 1.0  # 모자이크 증강 비율
+mixup: 0.0  # 믹스업 증강 비율
+erasing: 0.0  # 랜덤 지우기 비율
+crop_fraction: 1.0  # 크롭 비율 (전체 이미지 사용)
+hsv_h: 0.015  # Hue 변화 비율
+hsv_s: 0.7  # Saturation 변화 비율
+hsv_v: 0.4  # Value 변화 비율
+degrees: 5.0  # 회전 각도를 0.0에서 5.0으로 수정하여 데이터 다양화
+translate: 0.1  # 이동 비율 설정
+scale: 0.5  # 스케일 변화 비율 설정
+shear: 0.0  # 전단 변형 각도 설정
+perspective: 0.0  # 원근 변환 비율 설정
+flipud: 0.0  # 수직 반전 비율
+fliplr: 0.5  # 수평 반전 비율
